@@ -1,8 +1,8 @@
 AC_INIT([libstrophe], [trunk], [jack@metajack.im])
 AM_INIT_AUTOMAKE
 
+LT_INIT
 AC_PROG_CC
-AC_PROG_RANLIB
 AM_PROG_CC_C_O
 
 AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([couldn't find openssl headers, openssl required])])
@@ -26,12 +26,15 @@ if test "x$with_libxml2" = xyes; then
   PARSER_NAME=libxml2
   PARSER_CFLAGS=\$\(libxml2_CFLAGS\)
   PARSER_LIBS=\$\(libxml2_LIBS\)
+  AC_CHECK_LIB(xml2, xmlFree, [], [AC_MSG_ERROR("libxml2 not found")])
 else
   with_parser=builtin
   PARSER_NAME=expat
   PARSER_CFLAGS=\$\(builtin_CFLAGS\)
   PARSER_LIBS=\$\(builtin_LIBS\)
 fi
+
+AC_CHECK_LIB(ssl, ssl_verify_cert_chain, [], [AC_MSG_ERROR("libssl not found")])
 
 # Check for the resolv library (needed on linux systems)
 AC_CHECK_LIB(resolv, __res_query)

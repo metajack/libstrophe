@@ -9,25 +9,28 @@ PARSER_CFLAGS=@PARSER_CFLAGS@
 PARSER_LIBS=@PARSER_LIBS@
 
 STROPHE_FLAGS = -I$(top_srcdir)
-STROPHE_LIBS = libstrophe.a $(PARSER_LIBS) -lssl
+STROPHE_LIBS = libstrophe.la $(PARSER_LIBS) -lssl
 
 ## Main build targets
 if BUILD_EXPAT
-lib_LIBRARIES = libstrophe.a libexpat.a
-else
-lib_LIBRARIES = libstrophe.a
+lib_LIBRARIES = libexpat.a
 endif
+lib_LTLIBRARIES = libstrophe.la
 
-libstrophe_a_CFLAGS=$(STROPHE_FLAGS) $(PARSER_CFLAGS)
-libstrophe_a_SOURCES = src/auth.c src/conn.c src/ctx.c \
+# Note: version is <current>:<revision>:<age>, age _MUST_ be less than <current>
+#       (this is not an arbitrary value, see libtool documentation for more information.)
+#                   http://sourceware.org/autobook/autobook/autobook_91.html
+libstrophe_la_LDFLAGS = -version-info 1:0:1
+libstrophe_la_CFLAGS=$(STROPHE_FLAGS) $(PARSER_CFLAGS)
+libstrophe_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
 	src/event.c src/handler.c src/hash.c \
 	src/jid.c src/md5.c src/sasl.c src/sha1.c \
 	src/snprintf.c src/sock.c src/stanza.c src/thread.c \
 	src/tls_openssl.c src/util.c
 if PARSER_EXPAT
-libstrophe_a_SOURCES += src/parser_expat.c
+libstrophe_la_SOURCES += src/parser_expat.c
 else
-libstrophe_a_SOURCES += src/parser_libxml2.c
+libstrophe_la_SOURCES += src/parser_libxml2.c
 endif
 
 libexpat_a_CFLAGS=-DXML_DTD -DXML_NS -DXML_CONTEXT_BYTES=1024 -DXML_STATIC \
