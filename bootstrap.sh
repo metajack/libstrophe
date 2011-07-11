@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 aclocal
 automake --add-missing --foreign --copy
