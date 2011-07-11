@@ -9,7 +9,7 @@ PARSER_CFLAGS=@PARSER_CFLAGS@
 PARSER_LIBS=@PARSER_LIBS@
 
 STROPHE_FLAGS = -I$(top_srcdir)
-STROPHE_LIBS = libstrophe.a $(PARSER_LIBS) -lssl -lresolv
+STROPHE_LIBS = libstrophe.a $(PARSER_LIBS) -lssl
 
 ## Main build targets
 if BUILD_EXPAT
