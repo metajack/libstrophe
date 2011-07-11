@@ -6,11 +6,10 @@ AC_PROG_RANLIB
 AM_PROG_CC_C_O
 
 AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([couldn't find openssl headers, openssl required])])
-PKG_CHECK_MODULES([check], [check >= 0.9.4])
 
 AC_ARG_WITH([libxml2], 
             [AS_HELP_STRING([--with-libxml2], [use libxml2 for XML parsing])],
-            [with_libxml2=check],
+            [with_libxml2=yes],
             [with_libxml2=no])
 
 if test "x$with_libxml2" != xno; then
