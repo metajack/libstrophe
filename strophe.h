@@ -273,6 +273,22 @@ void xmpp_id_handler_delete(xmpp_conn_t * const conn,
 			    xmpp_handler handler,
 			    const char * const id);
 
+/* Event hooks and functions for people wanting to use their own event IO system */
+#ifndef _WIN32
+typedef int xmpp_sock_t;
+#else
+#include <winsock2.h>
+typedef SOCKET xmpp_sock_t;
+#endif
+
+void xmpp_conn_set_write_callback(xmpp_conn_t * const conn,
+                                  void (*callback)(xmpp_conn_t * const conn, void * userdata),
+                                  void *userdata);
+void xmpp_conn_read(xmpp_conn_t * const conn);
+void xmpp_conn_write(xmpp_conn_t * const conn);
+xmpp_sock_t xmpp_conn_get_socket(xmpp_conn_t * const conn);
+
+
 /*
 void xmpp_register_stanza_handler(conn, stanza, xmlns, type, handler)
 */

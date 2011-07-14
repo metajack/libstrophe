@@ -26,7 +26,7 @@
 
 struct _tls {
     xmpp_ctx_t *ctx;
-    sock_t sock;
+    xmpp_sock_t sock;
 
     HANDLE hsec32;
     SecurityFunctionTable *sft;
@@ -63,7 +63,7 @@ void tls_shutdown(void)
     return;
 }
 
-tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
+tls_t *tls_new(xmpp_ctx_t *ctx, xmpp_sock_t sock)
 {
     tls_t *tls;
     PSecurityFunctionTable (*pInitSecurityInterface)(void);

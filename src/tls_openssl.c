@@ -33,7 +33,7 @@
 
 struct _tls {
     xmpp_ctx_t *ctx;
-    sock_t sock;
+    xmpp_sock_t sock;
     SSL_CTX *ssl_ctx;
     SSL *ssl;
     int lasterror;
@@ -55,7 +55,7 @@ int tls_error(tls_t *tls)
     return tls->lasterror;
 }
 
-tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
+tls_t *tls_new(xmpp_ctx_t *ctx, xmpp_sock_t sock)
 {
     tls_t *tls = xmpp_alloc(ctx, sizeof(*tls));
 

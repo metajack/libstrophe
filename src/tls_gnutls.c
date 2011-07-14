@@ -24,7 +24,7 @@
 
 struct _tls {
     xmpp_ctx_t *ctx; /* do we need this? */
-    sock_t sock;
+    xmpp_sock_t sock;
     gnutls_session_t session;
     gnutls_certificate_credentials_t cred;
 };
@@ -45,7 +45,7 @@ void tls_shutdown(void)
     gnutls_global_deinit();
 }
 
-tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
+tls_t *tls_new(xmpp_ctx_t *ctx, xmpp_sock_t sock)
 {
     tls_t *tls = xmpp_alloc(ctx, sizeof(tls_t));
     const int cert_type_priority[3] = { GNUTLS_CRT_X509,

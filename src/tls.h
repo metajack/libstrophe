@@ -27,7 +27,7 @@ typedef struct _tls tls_t;
 void tls_initialize(void);
 void tls_shutdown(void);
 
-tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock);
+tls_t *tls_new(xmpp_ctx_t *ctx, xmpp_sock_t sock);
 void tls_free(tls_t *tls);
 
 int tls_set_credentials(tls_t *tls, const char *cafilename);

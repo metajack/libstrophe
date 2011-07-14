@@ -74,9 +74,9 @@ static int _in_progress(int error)
 #endif
 }
 
-sock_t sock_connect(const char * const host, const unsigned int port)
+xmpp_sock_t sock_connect(const char * const host, const unsigned int port)
 {
-    sock_t sock;
+    xmpp_sock_t sock;
     char service[6];
     struct addrinfo *res, *ainfo, hints;
     int err;
@@ -113,7 +113,7 @@ sock_t sock_connect(const char * const host, const unsigned int port)
     return sock;
 }
 
-int sock_close(const sock_t sock)
+int sock_close(const xmpp_sock_t sock)
 {
 #ifdef _WIN32
     return closesocket(sock);
@@ -122,7 +122,7 @@ int sock_close(const sock_t sock)
 #endif
 }
 
-int sock_set_blocking(const sock_t sock)
+int sock_set_blocking(const xmpp_sock_t sock)
 {
 #ifdef _WIN32
     u_long block = 0;
@@ -132,7 +132,7 @@ int sock_set_blocking(const sock_t sock)
 #endif
 }
 
-int sock_set_nonblocking(const sock_t sock)
+int sock_set_nonblocking(const xmpp_sock_t sock)
 {
 #ifdef _WIN32
     u_long nonblock = 1;
@@ -142,12 +142,12 @@ int sock_set_nonblocking(const sock_t sock)
 #endif
 }
 
-int sock_read(const sock_t sock, void * const buff, const size_t len)
+int sock_read(const xmpp_sock_t sock, void * const buff, const size_t len)
 {
     return recv(sock, buff, len, 0);
 }
 
-int sock_write(const sock_t sock, const void * const buff, const size_t len)
+int sock_write(const xmpp_sock_t sock, const void * const buff, const size_t len)
 {
     return send(sock, buff, len, 0);
 }
@@ -162,7 +162,7 @@ int sock_is_recoverable(const int error)
 #endif
 }
 
-int sock_connect_error(const sock_t sock)
+int sock_connect_error(const xmpp_sock_t sock)
 {
     struct sockaddr sa;
     unsigned len;
@@ -588,7 +588,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
 	struct dnsquery_question question;
 	int offset = 0;
 	int addrlen;
-	sock_t sock;
+	xmpp_sock_t sock;
 	struct sockaddr_in dnsaddr;
 	char dnsserverips[16][256];
 	int numdnsservers = 0;

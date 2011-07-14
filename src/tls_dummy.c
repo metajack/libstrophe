@@ -22,7 +22,7 @@
 
 struct _tls {
     xmpp_ctx_t *ctx; /* do we need this? */
-    sock_t sock;
+    xmpp_sock_t sock;
     /* we don't implement anything */
 };
 
@@ -36,7 +36,7 @@ void tls_shutdown(void)
     return;
 }
 
-tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
+tls_t *tls_new(xmpp_ctx_t *ctx, xmpp_sock_t sock)
 {
     /* always fail */
     return NULL;
