@@ -24,6 +24,7 @@ libstrophe_la_LDFLAGS = -version-info 1:0:1
 libstrophe_la_CFLAGS=$(STROPHE_FLAGS) $(PARSER_CFLAGS)
 libstrophe_ladir=$(includedir)/
 libstrophe_la_HEADERS=strophe.h strophepp.h
+noinst_HEADERS=src/*.h
 libstrophe_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
 	src/event.c src/handler.c src/hash.c \
 	src/jid.c src/md5.c src/sasl.c src/sha1.c \
