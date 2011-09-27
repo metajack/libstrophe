@@ -202,6 +202,8 @@ struct _xmpp_conn_t {
 
     /* user handlers only get called after authentication */
     int authenticated;
+
+    int lazy_registration;
     
     /* connection events handler */
     xmpp_conn_handler conn_handler;

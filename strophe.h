@@ -62,6 +62,10 @@ extern "C" {
  *  Namespace definition for 'jabber:iq:auth'.
  */
 #define XMPP_NS_AUTH "jabber:iq:auth"
+/** @def XMPP_NS_REGISTER
+ *  Namespace definition for 'jabber:iq:register'.
+ */
+#define XMPP_NS_REGISTER "jabber:iq:register"
 /** @def XMPP_NS_DISCO_INFO
  *  Namespace definition for 'http://jabber.org/protocol/disco#info'.
  */
@@ -217,6 +221,9 @@ void xmpp_conn_set_jid(xmpp_conn_t * const conn, const char * const jid);
 const char *xmpp_conn_get_pass(const xmpp_conn_t * const conn);
 void xmpp_conn_set_pass(xmpp_conn_t * const conn, const char * const pass);
 xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn);
+const int xmpp_conn_get_lazy_registration(const xmpp_conn_t * const conn);
+void xmpp_conn_set_lazy_registration(xmpp_conn_t * const conn, int value);
+
 
 int xmpp_connect_client(xmpp_conn_t * const conn, 
 			  const char * const altdomain,

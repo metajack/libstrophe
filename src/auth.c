@@ -55,7 +55,15 @@
 #define LEGACY_TIMEOUT 15000 /* 15 seconds */
 #endif
 
+#ifndef LAZY_REGISTRATION_TIMEOUT
+/** @def LAZY_REGISTRATION_TIMEOUT
+ *  Time to wait for lazy registration to complete.
+ */
+#define LAZY_REGISTRATION_TIMEOUT 15000 /* 15 seconds */
+#endif
+
 static void _auth(xmpp_conn_t * const conn);
+static void _register(xmpp_conn_t * const conn);
 static void _handle_open_tls(xmpp_conn_t * const conn);
 static void _handle_open_sasl(xmpp_conn_t * const conn);
 static int _handle_missing_legacy(xmpp_conn_t * const conn,
@@ -88,6 +96,11 @@ static int _handle_session(xmpp_conn_t * const conn,
 			   void * const userdata);
 static int _handle_missing_session(xmpp_conn_t * const conn,
 				   void * const userdata);
+static int _handle_missing_register(xmpp_conn_t * const conn,
+				    void * const userdata);
+static int _handle_register(xmpp_conn_t * const conn,
+			    xmpp_stanza_t * const stanza,
+			    void * const userdata);
 
 /* stream:error handler */
 static int _handle_error(xmpp_conn_t * const conn,
@@ -669,6 +682,119 @@ static void _auth(xmpp_conn_t * const conn)
     }
 }
 
+/** registration at connections
+ *
+ *  @param conn a Strophe connection object
+ */
+static void _register(xmpp_conn_t * const conn)
+{
+    char *str;
+
+    xmpp_stanza_t *iq, *q, *child, *regdata;
+
+    iq = xmpp_stanza_new(conn->ctx);
+    if (!iq) {
+	disconnect_mem_error(conn);
+	return;
+    }
+
+    xmpp_stanza_set_name(iq, "iq");
+    xmpp_stanza_set_type(iq, "set");
+    xmpp_stanza_set_id(iq, "_xmpp_reg1");
+
+    q = xmpp_stanza_new(conn->ctx);
+    if (!q) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_name(q, "query");
+    xmpp_stanza_set_ns(q, XMPP_NS_REGISTER);
+    xmpp_stanza_add_child(iq, q);
+    xmpp_stanza_release(q);
+
+    child = xmpp_stanza_new(conn->ctx);
+    if (!child) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_name(child, "registered");
+    xmpp_stanza_add_child(q, child);
+    xmpp_stanza_release(child);
+
+    child = xmpp_stanza_new(conn->ctx);
+    if (!child) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_name(child, "username");
+    xmpp_stanza_add_child(q, child);
+    xmpp_stanza_release(child);
+
+    regdata = xmpp_stanza_new(conn->ctx);
+    if (!regdata) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    str = xmpp_jid_node(conn->ctx, conn->jid);
+    xmpp_stanza_set_text(regdata, str);
+    xmpp_free(conn->ctx, str);
+    xmpp_stanza_add_child(child, regdata);
+    xmpp_stanza_release(regdata);
+
+    child = xmpp_stanza_new(conn->ctx);
+    if (!child) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_name(child, "password");
+    xmpp_stanza_add_child(q, child);
+    xmpp_stanza_release(child);
+
+    regdata = xmpp_stanza_new(conn->ctx);
+    if (!regdata) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_text(regdata, conn->pass);
+    xmpp_stanza_add_child(child, regdata);
+    xmpp_stanza_release(regdata);
+
+    child = xmpp_stanza_new(conn->ctx);
+    if (!child) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    xmpp_stanza_set_name(child, "email");
+    xmpp_stanza_add_child(q, child);
+    xmpp_stanza_release(child);
+
+    regdata = xmpp_stanza_new(conn->ctx);
+    if (!regdata) {
+	xmpp_stanza_release(iq);
+	disconnect_mem_error(conn);
+	return;
+    }
+    str = xmpp_jid_node(conn->ctx, conn->jid);
+    xmpp_stanza_set_text(regdata, str);
+    xmpp_free(conn->ctx, str);
+    xmpp_stanza_add_child(child, regdata);
+    xmpp_stanza_release(regdata);
+
+    handler_add_id(conn, _handle_register, "_xmpp_reg1", NULL);
+    handler_add_timed(conn, _handle_missing_register, 
+		      LAZY_REGISTRATION_TIMEOUT, NULL);
+
+    xmpp_send(conn, iq);
+    xmpp_stanza_release(iq);
+}
+
 
 /** Set up handlers at stream start.
  *  This function is called internally to Strophe for handling the opening
@@ -954,9 +1080,13 @@ static int _handle_legacy(xmpp_conn_t * const conn,
 		   "to legacy authentication request.");
 	xmpp_disconnect(conn);
     } else if (strcmp(type, "error") == 0) {
-	/* legacy client auth failed, no more fallbacks */
-	xmpp_error(conn->ctx, "xmpp", "Legacy client authentication failed.");
-	xmpp_disconnect(conn);
+	if (!conn->lazy_registration) {
+	    /* legacy client auth failed, no more fallbacks */
+	    xmpp_error(conn->ctx, "xmpp", "Legacy client authentication failed.");
+	    xmpp_disconnect(conn);
+	} else {
+	    _register(conn);
+	}
     } else if (strcmp(type, "result") == 0) {
 	/* auth succeeded */
 	xmpp_debug(conn->ctx, "xmpp", "Legacy auth succeeded.");
@@ -977,6 +1107,49 @@ static int _handle_missing_legacy(xmpp_conn_t * const conn,
 {
     xmpp_error(conn->ctx, "xmpp", "Server did not reply to legacy "\
 	       "authentication request.");
+    xmpp_disconnect(conn);
+    return 0;
+}
+
+
+static int _handle_register(xmpp_conn_t * const conn,
+			     xmpp_stanza_t * const stanza,
+			     void * const userdata)
+{
+    char *type;
+
+    /* delete missing handler */
+    xmpp_timed_handler_delete(conn, _handle_missing_register);
+
+    /* server responded to legacy auth request */
+    type = xmpp_stanza_get_type(stanza);
+    if (!type) {
+	xmpp_error(conn->ctx, "xmpp", "Server sent us an unexpected response "\
+		   "to register request.");
+	xmpp_disconnect(conn);
+    } else if (strcmp(type, "error") == 0) {
+	/* legacy client auth failed, no more fallbacks */
+	xmpp_error(conn->ctx, "xmpp", "Register clientfailed.");
+	xmpp_disconnect(conn);
+    } else if (strcmp(type, "result") == 0) {
+	/* auth succeeded */
+	xmpp_debug(conn->ctx, "xmpp", "Register succeeded.");
+
+	_auth(conn);
+    } else {
+	xmpp_error(conn->ctx, "xmpp", "Server sent us a register"	\
+		   "response with a bad type.");
+	xmpp_disconnect(conn);
+    }
+
+    return 0;
+}
+
+
+static int _handle_missing_register(xmpp_conn_t * const conn,
+				    void * const userdata)
+{
+    xmpp_error(conn->ctx, "xmpp", "Server did not reply to register request.");
     xmpp_disconnect(conn);
     return 0;
 }
