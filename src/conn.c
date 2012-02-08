@@ -367,6 +367,32 @@ xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
 	return conn->ctx;
 }
 
+/** Get the lazy registration flag.
+ *
+ *  @param conn a Strophe connection object
+ *
+ *  @return not NULL if flag set or NULL if it has not been set
+ *
+ *  @ingroup Connections
+ */
+const int xmpp_conn_get_lazy_registration(const xmpp_conn_t * const conn)
+{
+    return conn->lazy_registration;
+}
+
+/** Set the lazy registration flag.
+ *  If authentication failed try register selected jid/password
+ * 
+ *  @param conn a Strophe connection object
+ *  @param value a not NULL for enabled or NULL for dissable
+ *
+ *  @ingroup Connections
+ */
+void xmpp_conn_set_lazy_registration(xmpp_conn_t * const conn, int value)
+{
+    conn->lazy_registration = value;
+}
+
 /** Initiate a connection to the XMPP server.
  *  This function returns immediately after starting the connection
  *  process to the XMPP server, and notifiations of connection state changes
