@@ -9,11 +9,9 @@ AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([couldn't find openssl headers,
 PKG_CHECK_MODULES([check], [check >= 0.9.4], [], [AC_MSG_WARN([libcheck not found; unit tests will not be compilable])])
 
 AC_ARG_WITH([libxml2],
-            [AS_HELP_STRING([--with-libxml2], [use libxml2 for XML parsing])],
-            [with_libxml2=check],
-            [with_libxml2=no])
+            [AS_HELP_STRING([--with-libxml2], [use libxml2 for XML parsing])])
 
-if test "x$with_libxml2" != xno; then
+if test "x$with_libxml2" = xyes; then
   PKG_CHECK_MODULES([libxml2], [libxml-2.0 >= 2.7],
                     [with_libxml2=yes],
                     [AC_MSG_ERROR([couldn't find libxml2])])
