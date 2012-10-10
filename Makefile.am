@@ -2,6 +2,8 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 CFLAGS = -g -Wall
 
+pkgconfigdir = $(libdir)/pkgconfig
+
 PARSER_CFLAGS=@PARSER_CFLAGS@
 PARSER_LIBS=@PARSER_LIBS@
 
@@ -33,6 +35,8 @@ include_HEADERS = strophe.h
 noinst_HEADERS = strophepp.h
 
 EXTRA_DIST = docs
+
+pkgconfig_DATA = libstrophe.pc
 
 ## Examples
 noinst_PROGRAMS = examples/active examples/roster examples/basic examples/bot
