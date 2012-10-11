@@ -71,16 +71,22 @@ mutex_t *mutex_create(const xmpp_ctx_t * ctx)
 int mutex_destroy(mutex_t *mutex)
 {
     int ret = 1;
-    const xmpp_ctx_t *ctx;
+    const xmpp_ctx_t *ctx = NULL;
+
+    if (mutex)
+        ctx = mutex->ctx;
+    if (!ctx)
+        return XMPP_EMEM;
 
 #ifdef _WIN32
     if (mutex->mutex)
 	ret = CloseHandle(mutex->mutex);
 #else
-    if (mutex->mutex)
+    if (mutex->mutex) {
 	ret = pthread_mutex_destroy(mutex->mutex) == 0;
+	xmpp_free(ctx, mutex->mutex);
+    }
 #endif
-    ctx = mutex->ctx;
     xmpp_free(ctx, mutex);
 
     return ret;
