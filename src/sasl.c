@@ -494,9 +494,8 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
     if (len & 0x03) return NULL;
 
     dlen = base64_decoded_len(ctx, buffer, len);
-    dbuf = xmpp_alloc(ctx, dlen + 1);
+    d = dbuf = xmpp_alloc(ctx, dlen + 1);
     if (dbuf != NULL) {
-	d = dbuf;
 	/* loop over each set of 4 characters, decoding 3 bytes */
 	for (i = 0; i < len - 3; i += 4) {
 	    hextet = _base64_invcharmap[(int)buffer[i]];
@@ -553,7 +552,8 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
 		break;
 	}
     }
-    *d = '\0';
+    if (d)
+	    *d = '\0';
     return dbuf;
 
 _base64_decode_error:	
