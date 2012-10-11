@@ -490,6 +490,8 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
     uint32_t word, hextet;
     int i;
 
+    /* handle zero-length buffers */
+    if (!len) return NULL;
     /* len must be a multiple of 4 */
     if (len & 0x03) return NULL;
 
