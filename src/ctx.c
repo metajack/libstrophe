@@ -269,6 +269,7 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
 
         if (ret > oldret) {
             xmpp_error(ctx, "log", "Unexpected error");
+            xmpp_free(ctx, bigbuf);
             return;
         }
 
