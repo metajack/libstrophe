@@ -487,7 +487,7 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
 {
     int dlen;
     unsigned char *dbuf, *d;
-    uint32_t word, hextet;
+    uint32_t word, hextet = 0;
     int i;
 
     /* handle zero-length buffers */
