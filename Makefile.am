@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
-CFLAGS = -g -Wall
+CFLAGS += -g -Wall
 
 pkgconfigdir = $(libdir)/pkgconfig
 
