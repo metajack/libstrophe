@@ -252,6 +252,9 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
     char *bigbuf = NULL;
     va_list ap_copy;
 
+    if (!ctx || !ctx->log || !ctx->log->handler)
+        return;
+
     va_copy(ap_copy, ap);
     ret = xmpp_vsnprintf(smbuf, 1023, fmt, ap_copy);
     va_end(ap_copy);
@@ -273,15 +276,10 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
             return;
         }
 
-        if (ctx->log->handler) {
-            ctx->log->handler(ctx->log->userdata, level, area, bigbuf);
-        }
+        ctx->log->handler(ctx->log->userdata, level, area, bigbuf);
         xmpp_free(ctx, bigbuf);
-    } else {
-        if (ctx->log->handler) {
-            ctx->log->handler(ctx->log->userdata, level, area, smbuf);
-        }
-    }
+    } else
+        ctx->log->handler(ctx->log->userdata, level, area, smbuf);
 }
 
 /** Write to the log at the ERROR level.
