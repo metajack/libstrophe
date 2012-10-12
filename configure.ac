@@ -1,4 +1,4 @@
-AC_INIT([libstrophe], [0.8-snapshot], [jack@metajack.im])
+AC_INIT([libcouplet], [0.8-snapshot], [pasis.ua@gmail.com])
 AM_INIT_AUTOMAKE
 
 AC_PROG_CC
@@ -6,7 +6,7 @@ AC_PROG_RANLIB
 AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
 
-AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([couldn't find openssl headers, openssl required])])
+AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([could not find openssl headers, openssl required])])
 PKG_CHECK_MODULES([check], [check >= 0.9.4], [], [AC_MSG_WARN([libcheck not found; unit tests will not be compilable])])
 
 AC_ARG_WITH([libxml2],
@@ -15,9 +15,9 @@ AC_ARG_WITH([libxml2],
 if test "x$with_libxml2" = xyes; then
   PKG_CHECK_MODULES([libxml2], [libxml-2.0 >= 2.7],
                     [with_libxml2=yes],
-                    [AC_MSG_ERROR([couldn't find libxml2])])
+                    [AC_MSG_ERROR([could not find libxml2])])
 else
-  AC_CHECK_HEADER(expat.h, [], [AC_MSG_ERROR([couldn't find expat headers; expat required])])
+  AC_CHECK_HEADER(expat.h, [], [AC_MSG_ERROR([could not find expat headers; expat required])])
 fi
 
 if test "x$with_libxml2" = xyes; then
@@ -32,7 +32,7 @@ else
   PARSER_LIBS=-lexpat
 fi
 
-AC_MSG_NOTICE([libstrophe will use the $with_parser XML parser])
+AC_MSG_NOTICE([libcouplet will use the $with_parser XML parser])
 AC_SEARCH_LIBS([socket], [socket])
 
 AC_LINK_IFELSE([AC_LANG_CALL([#include <resolv.h>], [res_query])], [],[LIBS="$LIBS -lresolv"])
@@ -43,5 +43,5 @@ AM_CONDITIONAL([PARSER_EXPAT], [test x$with_parser != xlibxml2])
 AC_SUBST(PARSER_NAME)
 AC_SUBST(PARSER_CFLAGS)
 AC_SUBST(PARSER_LIBS)
-AC_CONFIG_FILES([Makefile libstrophe.pc])
+AC_CONFIG_FILES([Makefile libcouplet.pc])
 AC_OUTPUT

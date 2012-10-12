@@ -29,7 +29,7 @@
 #include "ostypes.h"
 #endif
 
-#include "strophe.h"
+#include "couplet.h"
 #include "common.h"
 
 /** Fire off all stanza handlers that match.

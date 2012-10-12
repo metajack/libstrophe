@@ -16,7 +16,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "strophe.h"
+#include "couplet.h"
 #include "common.h"
 #include "hash.h"
 

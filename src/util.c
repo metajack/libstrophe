@@ -27,7 +27,7 @@
 #include <stdint.h>
 #endif
 
-#include "strophe.h"
+#include "couplet.h"
 #include "common.h"
 #include "util.h"
 

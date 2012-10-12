@@ -16,7 +16,7 @@
 
 #include <check.h>
 
-#include <strophe.h>
+#include <couplet.h>
 #include "parser.h"
 
 #include "test.h"

@@ -14,8 +14,8 @@
 
 #include <stdlib.h>
 
-#include "strophe.h"
-#include "strophepp.h"
+#include "couplet.h"
+#include "coupletpp.h"
 
 XMPP::Context::Context() 
 {

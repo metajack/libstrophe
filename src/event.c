@@ -47,7 +47,7 @@
 #define ECONNABORTED WSAECONNABORTED
 #endif
 
-#include <strophe.h>
+#include "couplet.h"
 #include "common.h"
 #include "parser.h"
 

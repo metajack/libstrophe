@@ -19,7 +19,7 @@
 #ifndef __LIBSTROPHE_SASL_H__
 #define __LIBSTROPHE_SASL_H__
 
-#include "strophe.h"
+#include "couplet.h"
 
 /** low-level sasl routines */
 
