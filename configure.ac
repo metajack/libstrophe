@@ -2,9 +2,8 @@ AC_INIT([libcouplet], [0.8-snapshot], [pasis.ua@gmail.com])
 AM_INIT_AUTOMAKE
 
 AC_PROG_CC
-AC_PROG_RANLIB
-AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
+LT_INIT
 
 AC_CHECK_HEADER(openssl/ssl.h, [], [AC_MSG_ERROR([could not find openssl headers, openssl required])])
 PKG_CHECK_MODULES([check], [check >= 0.9.4], [], [AC_MSG_WARN([libcheck not found; unit tests will not be compilable])])
