@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <strophe.h>
+#include "couplet.h"
 
 #include "common.h"
 #include "util.h"

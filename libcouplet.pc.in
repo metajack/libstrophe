@@ -3,9 +3,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: libstrophe
-Description: A simple, lightweight C library for writing XMPP clients
+Name: libcouplet
+Description: Fork of libstrophe - a simple, lightweight C library for writing XMPP clients
 Requires: 
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lstrophe
+Libs: -L${libdir} -lcouplet
 Cflags: -I${includedir}

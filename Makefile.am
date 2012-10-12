@@ -11,13 +11,13 @@ SSL_LIBS = -lssl -lcrypto -lz
 LIBS += $(SSL_LIBS) $(PARSER_LIBS)
 
 STROPHE_FLAGS = -I$(top_srcdir)
-STROPHE_LIBS = libstrophe.la
+STROPHE_LIBS = libcouplet.la
 
 ## Main build targets
-lib_LTLIBRARIES = libstrophe.la
+lib_LTLIBRARIES = libcouplet.la
 
-libstrophe_la_CFLAGS=$(STROPHE_FLAGS) $(PARSER_CFLAGS)
-libstrophe_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
+libcouplet_la_CFLAGS=$(STROPHE_FLAGS) $(PARSER_CFLAGS)
+libcouplet_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
 	src/event.c src/handler.c src/hash.c \
 	src/jid.c src/md5.c src/sasl.c src/sha1.c \
 	src/snprintf.c src/sock.c src/stanza.c src/thread.c \
@@ -26,17 +26,17 @@ libstrophe_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
 	src/sasl.h src/sha1.h src/sock.h src/thread.h src/tls.h src/util.h
 
 if PARSER_EXPAT
-libstrophe_la_SOURCES += src/parser_expat.c
+libcouplet_la_SOURCES += src/parser_expat.c
 else
-libstrophe_la_SOURCES += src/parser_libxml2.c
+libcouplet_la_SOURCES += src/parser_libxml2.c
 endif
 
-include_HEADERS = strophe.h
-noinst_HEADERS = strophepp.h
+include_HEADERS = couplet.h
+noinst_HEADERS = coupletpp.h
 
 EXTRA_DIST = docs
 
-pkgconfig_DATA = libstrophe.pc
+pkgconfig_DATA = libcouplet.pc
 
 ## Examples
 noinst_PROGRAMS = examples/active examples/roster examples/basic examples/bot

@@ -26,7 +26,7 @@
 #endif
 
 
-#include "strophe.h"
+#include "couplet.h"
 #include "sock.h"
 #include "tls.h"
 #include "hash.h"

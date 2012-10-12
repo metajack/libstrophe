@@ -28,7 +28,7 @@
 #include <pthread.h>
 #endif
 
-#include "strophe.h"
+#include "couplet.h"
 
 typedef struct _mutex_t mutex_t;
 

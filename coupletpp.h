@@ -1,4 +1,4 @@
-/* strophepp.h
+/* coupletpp.h
 ** strophe XMPP client library C++ API
 **
 ** Copyright (C) 2005-2009 Collecta, Inc.
@@ -19,7 +19,7 @@
 #ifndef __LIBSTROPHE_STROPHEPP_H__
 #define __LIBSTROPHE_STROPHEPP_H__
 
-#include "strophe.h"
+#include "couplet.h"
 
 namespace XMPP {
     class Context {
