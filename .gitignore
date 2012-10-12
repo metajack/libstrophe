@@ -26,6 +26,8 @@ tests/check_parser
 *.tar.gz
 *.zip
 *.pc
+*~
+*.swp
 docs/html
 TAGS
 examples/basic
