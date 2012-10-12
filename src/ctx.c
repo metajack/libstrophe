@@ -263,7 +263,7 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
             return;
         }
         oldret = ret;
-		va_copy(ap_copy, ap);
+	va_copy(ap_copy, ap);
         ret = xmpp_vsnprintf(bigbuf, ret + 1, fmt, ap_copy);
     	va_end(ap_copy);
 
