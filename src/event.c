@@ -50,6 +50,7 @@
 #include "couplet.h"
 #include "common.h"
 #include "parser.h"
+#include "thread.h"
 
 #ifndef DEFAULT_TIMEOUT
 /** @def DEFAULT_TIMEOUT
@@ -58,6 +59,34 @@
  */
 #define DEFAULT_TIMEOUT 1
 #endif
+
+static xmpp_send_queue_t *
+xmpp_send_queue_next(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
+{
+	xmpp_send_queue_t *sq;
+	mutex_lock(conn->send_queue_mutex);
+	sq = conn->send_queue_head;
+	if (sq) {
+		conn->send_queue_head = sq->next;
+		if (!sq->next)
+			conn->send_queue_tail = NULL;
+		conn->send_queue_len--;
+	}
+	mutex_unlock(conn->send_queue_mutex);
+	return sq;
+}
+
+static void
+xmpp_send_queue_ins(xmpp_ctx_t *ctx, xmpp_conn_t *conn, xmpp_send_queue_t *sq)
+{
+	mutex_lock(conn->send_queue_mutex);
+	sq->next = conn->send_queue_head;
+	conn->send_queue_head = sq;
+	if (!sq->next)
+		conn->send_queue_tail = sq;
+	conn->send_queue_len++;
+	mutex_unlock(conn->send_queue_mutex);
+}
 
 /** Run the event loop once.
  *  This function will run send any data that has been queued by
@@ -80,8 +109,9 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	sock_t max = 0;
 	int ret;
 	struct timeval tv;
-	xmpp_send_queue_t *sq, *tsq;
+	xmpp_send_queue_t *sq;
 	int towrite;
+	int sent;
 	char buf[4096];
 	uint64_t next;
 	long usec;
@@ -114,8 +144,9 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		}
 
 		/* write all data from the send queue to the socket */
-		sq = conn->send_queue_head;
+		sq = xmpp_send_queue_next(ctx, conn);
 		while (sq) {
+			sent = 1;
 			towrite = sq->len - sq->written;
 
 			if (conn->tls) {
@@ -124,12 +155,12 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 				if (ret < 0 && !tls_is_recoverable(tls_error(conn->tls))) {
 					/* an error occured */
 					conn->error = tls_error(conn->tls);
-					break;
+					sent = 0;
 				} else if (ret < towrite) {
 					/* not all data could be sent now */
 					if (ret >= 0)
 						sq->written += ret;
-					break;
+					sent = 0;
 				}
 
 			} else {
@@ -138,26 +169,25 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 				if (ret < 0 && !sock_is_recoverable(sock_error())) {
 					/* an error occured */
 					conn->error = sock_error();
-					break;
+					sent = 0;
 				} else if (ret < towrite) {
 					/* not all data could be sent now */
 					if (ret >= 0)
 						sq->written += ret;
-					break;
+					sent = 0;
 				}
+			}
+
+			if (!sent) {
+				/* insert sq to the head of send queue */
+				xmpp_send_queue_ins(ctx, conn, sq);
+				break;
 			}
 
 			/* all data for this queue item written, delete and move on */
 			xmpp_free(ctx, sq->data);
-			tsq = sq;
-			sq = sq->next;
-			xmpp_free(ctx, tsq);
-
-			/* pop the top item */
-			conn->send_queue_head = sq;
-			/* if we've sent everything update the tail */
-			if (!sq)
-				conn->send_queue_tail = NULL;
+			xmpp_free(ctx, sq);
+			sq = xmpp_send_queue_next(ctx, conn);
 		}
 
 		/* tear down connection on error */

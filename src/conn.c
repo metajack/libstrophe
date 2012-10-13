@@ -28,6 +28,7 @@
 #include "common.h"
 #include "util.h"
 #include "parser.h"
+#include "thread.h"
 
 #ifndef DEFAULT_SEND_QUEUE_MAX
 /** @def DEFAULT_SEND_QUEUE_MAX
@@ -94,15 +95,17 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 		conn->send_queue_len = 0;
 		conn->send_queue_head = NULL;
 		conn->send_queue_tail = NULL;
+		conn->send_queue_mutex = mutex_create(ctx);
+		if (!conn->send_queue_mutex)
+			goto out_free_conn;
 
 		/* default timeouts */
 		conn->connect_timeout = CONNECT_TIMEOUT;
 
 		conn->lang = xmpp_strdup(conn->ctx, "en");
-		if (!conn->lang) {
-			xmpp_free(conn->ctx, conn);
-			return NULL;
-		}
+		if (!conn->lang)
+			goto out_free_mutex;
+
 		conn->domain = NULL;
 		conn->jid = NULL;
 		conn->pass = NULL;
@@ -123,6 +126,8 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 					  _handle_stream_end,
 					  _handle_stream_stanza,
 					  conn);
+		if (!conn->parser)
+			goto out_free_lang;
 		conn->reset_parser = 0;
 		conn_prepare_reset(conn, auth_handle_open);
 
@@ -145,10 +150,7 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 		item = xmpp_alloc(conn->ctx, sizeof(xmpp_connlist_t));
 		if (!item) {
 			xmpp_error(conn->ctx, "xmpp", "failed to allocate memory");
-			xmpp_free(conn->ctx, conn->lang);
-			parser_free(conn->parser);
-			xmpp_free(conn->ctx, conn);
-			conn = NULL;
+			goto out_free_parser;
 		} else {
 			item->conn = conn;
 			item->next = NULL;
@@ -161,6 +163,16 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	}
 
 	return conn;
+
+out_free_parser:
+	parser_free(conn->parser);
+out_free_lang:
+	xmpp_free(conn->ctx, conn->lang);
+out_free_mutex:
+	mutex_destroy(conn->send_queue_mutex);
+out_free_conn:
+	xmpp_free(conn->ctx, conn);
+	return NULL;
 }
 
 /** Clone a Strophe connection object.
@@ -273,6 +285,10 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 		}
 
 		parser_free(conn->parser);
+
+		/* free send_queue */
+		/* @TODO release send_queue */
+		mutex_destroy(conn->send_queue_mutex);
 
 		if (conn->domain) xmpp_free(ctx, conn->domain);
 		if (conn->jid) xmpp_free(ctx, conn->jid);
@@ -618,6 +634,7 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
 	item->written = 0;
 
 	/* add item to the send queue */
+	mutex_lock(conn->send_queue_mutex);
 	if (!conn->send_queue_tail) {
 		/* first item, set head and tail */
 		conn->send_queue_head = item;
@@ -628,6 +645,7 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
 		conn->send_queue_tail = item;
 	}
 	conn->send_queue_len++;
+	mutex_unlock(conn->send_queue_mutex);
 }
 
 /** Send an XML stanza to the XMPP server.
