@@ -432,6 +432,7 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
 	if (!conn->domain)
 		return -1;
 
+	/* @TODO replace port 5222 with a marco */
 	if (altdomain) {
 		xmpp_debug(conn->ctx, "xmpp", "Connecting via altdomain.");
 		strcpy(connectdomain, altdomain);
