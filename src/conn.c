@@ -51,15 +51,12 @@
 #define CONNECT_TIMEOUT 5000 /* 5 seconds */
 #endif
 
-static int _disconnect_cleanup(xmpp_conn_t * const conn,
-			       void * const userdata);
+static int _disconnect_cleanup(xmpp_conn_t * const conn, void * const userdata);
 
 static void _handle_stream_start(char *name, char **attrs,
 				 void * const userdata);
-static void _handle_stream_end(char *name,
-			       void * const userdata);
-static void _handle_stream_stanza(xmpp_stanza_t *stanza,
-				  void * const userdata);
+static void _handle_stream_end(char *name, void * const userdata);
+static void _handle_stream_stanza(xmpp_stanza_t *stanza, void * const userdata);
 
 /** Create a new Strophe connection object.
  *
@@ -290,12 +287,18 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 		/* @TODO release send_queue */
 		mutex_destroy(conn->send_queue_mutex);
 
-		if (conn->domain) xmpp_free(ctx, conn->domain);
-		if (conn->jid) xmpp_free(ctx, conn->jid);
-		if (conn->bound_jid) xmpp_free(ctx, conn->bound_jid);
-		if (conn->pass) xmpp_free(ctx, conn->pass);
-		if (conn->stream_id) xmpp_free(ctx, conn->stream_id);
-		if (conn->lang) xmpp_free(ctx, conn->lang);
+		if (conn->domain)
+			xmpp_free(ctx, conn->domain);
+		if (conn->jid)
+			xmpp_free(ctx, conn->jid);
+		if (conn->bound_jid)
+			xmpp_free(ctx, conn->bound_jid);
+		if (conn->pass)
+			xmpp_free(ctx, conn->pass);
+		if (conn->stream_id)
+			xmpp_free(ctx, conn->stream_id);
+		if (conn->lang)
+			xmpp_free(ctx, conn->lang);
 		xmpp_free(ctx, conn);
 		released = 1;
 	}
