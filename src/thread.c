@@ -31,12 +31,12 @@
 #include "thread.h"
 
 struct _mutex_t {
-    const xmpp_ctx_t *ctx;
+	const xmpp_ctx_t *ctx;
 
 #ifdef _WIN32
-    HANDLE mutex;
+	HANDLE mutex;
 #else
-    pthread_mutex_t *mutex;
+	pthread_mutex_t *mutex;
 #endif
 };
 
@@ -44,82 +44,84 @@ struct _mutex_t {
 
 mutex_t *mutex_create(const xmpp_ctx_t * ctx)
 {
-    mutex_t *mutex;
+	mutex_t *mutex;
 
-    mutex = xmpp_alloc(ctx, sizeof(mutex_t));
-    if (mutex) {
-	mutex->ctx = ctx;
+	mutex = xmpp_alloc(ctx, sizeof(mutex_t));
+	if (!mutex)
+		return NULL;
+
 #ifdef _WIN32
 	mutex->mutex = CreateMutex(NULL, FALSE, NULL);
 #else
 	mutex->mutex = xmpp_alloc(ctx, sizeof(pthread_mutex_t));
-	if (mutex->mutex)
-	    if (pthread_mutex_init(mutex->mutex, NULL) != 0) {
+	if (mutex->mutex && pthread_mutex_init(mutex->mutex, NULL)) {
+		/* mutex is allocated but not initialized */
 		xmpp_free(ctx, mutex->mutex);
 		mutex->mutex = NULL;
-	    }
-#endif
-	if (!mutex->mutex) {
-	    xmpp_free(ctx, mutex);
-	    mutex = NULL;
 	}
-    }
+#endif
 
-    return mutex;
+	if (!mutex->mutex) {
+		xmpp_free(ctx, mutex);
+		mutex = NULL;
+	} else
+		mutex->ctx = ctx;
+
+	return mutex;
 }
 
 int mutex_destroy(mutex_t *mutex)
 {
-    int ret = 1;
-    const xmpp_ctx_t *ctx = NULL;
+	int ret = 1;
+	const xmpp_ctx_t *ctx = NULL;
 
-    if (mutex)
-        ctx = mutex->ctx;
-    if (!ctx)
-        return XMPP_EMEM;
+	if (mutex)
+		ctx = mutex->ctx;
+	if (!ctx)
+		return XMPP_EMEM;
 
 #ifdef _WIN32
-    if (mutex->mutex)
-	ret = CloseHandle(mutex->mutex);
+	if (mutex->mutex)
+		ret = CloseHandle(mutex->mutex);
 #else
-    if (mutex->mutex) {
-	ret = pthread_mutex_destroy(mutex->mutex) == 0;
-	xmpp_free(ctx, mutex->mutex);
-    }
+	if (mutex->mutex) {
+		ret = pthread_mutex_destroy(mutex->mutex) == 0;
+		xmpp_free(ctx, mutex->mutex);
+	}
 #endif
-    xmpp_free(ctx, mutex);
+	xmpp_free(ctx, mutex);
 
-    return ret;
+	return ret;
 }
 
 int mutex_lock(mutex_t *mutex)
 {
-    int ret;
+	int ret;
 
 #ifdef _WIN32
-    ret = WaitForSingleObject(mutex->mutex, INFINITE) == 0;
+	ret = WaitForSingleObject(mutex->mutex, INFINITE) == 0;
 #else
-    ret = pthread_mutex_lock(mutex->mutex) == 0;
+	ret = pthread_mutex_lock(mutex->mutex) == 0;
 #endif
 
-    return ret;
+	return ret;
 }
 
 int mutex_trylock(mutex_t *mutex)
 {
-    /* TODO */
-    return 0;
+	/* TODO */
+	return 0;
 }
 
 int mutex_unlock(mutex_t *mutex)
 {
-    int ret;
+	int ret;
 
 #ifdef _WIN32
-    ret = ReleaseMutex(mutex->mutex);
+	ret = ReleaseMutex(mutex->mutex);
 #else
-    ret = pthread_mutex_unlock(mutex->mutex) == 0;
+	ret = pthread_mutex_unlock(mutex->mutex) == 0;
 #endif
 
-    return ret;
+	return ret;
 }
