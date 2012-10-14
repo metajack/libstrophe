@@ -105,6 +105,7 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 	int ret;
 	int towrite;
 
+	/** @TODO lock connlist with ctx->connlist_mutex */
 	/* send queued data */
 	connitem = ctx->connlist;
 	while (connitem) {
