@@ -88,38 +88,22 @@ xmpp_send_queue_ins(xmpp_ctx_t *ctx, xmpp_conn_t *conn, xmpp_send_queue_t *sq)
 	mutex_unlock(conn->send_queue_mutex);
 }
 
-/** Run the event loop once.
- *  This function will run send any data that has been queued by
- *  xmpp_send and related functions and run through the Strophe even
- *  loop a single time, and will not wait more than timeout
- *  milliseconds for events.  This is provided to support integration
- *  with event loops outside the library, and if used, should be
- *  called regularly to achieve low latency event handling.
+/** Run send loop once.
+ *  This function will run send any data that has been queued by xmpp_send
+ *  and related functions.
  *
  *  @param ctx a Strophe context object
- *  @param timeout time to wait for events in milliseconds
  *
  *  @ingroup EventLoop
  */
-void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
+void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 {
 	xmpp_connlist_t *connitem;
 	xmpp_conn_t *conn;
-	fd_set rfds, wfds;
-	sock_t max = 0;
-	int ret;
-	struct timeval tv;
 	xmpp_send_queue_t *sq;
-	int towrite;
 	int sent;
-	char buf[4096];
-	uint64_t next;
-	long usec;
-	int tls_read_bytes = 0;
-
-	if (ctx->loop_status == XMPP_LOOP_QUIT)
-		return;
-	ctx->loop_status = XMPP_LOOP_RUNNING;
+	int ret;
+	int towrite;
 
 	/* send queued data */
 	connitem = ctx->connlist;
@@ -201,6 +185,64 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	
 		connitem = connitem->next;
 	}
+}
+
+/** Start the sending loop.
+ *  This function is start routine for a separated thread. It continuously
+ *  calls xmpp_run_send_queue_once.
+ *
+ *  @param data is a pointer to a Strophe context object
+ *
+ *  @return always NULL
+ *
+ *  @ingroup EventLoop
+ */
+void *xmpp_send_queue_thread(void *data)
+{
+	xmpp_ctx_t *ctx = (xmpp_ctx_t *)data;
+
+	if (!ctx)
+		return NULL;
+
+	/** @TODO make condition for break */
+	/* infinite loop */
+	while (1) {
+		/* lock thread if nothing to be sent */
+		xmpp_sem_wait(ctx->send_queue_sem);
+		xmpp_run_send_queue_once(ctx);
+	}
+
+	return NULL;
+}
+
+/** Run the event loop once.
+ *  This function will run through the Strophe event
+ *  loop a single time, and will not wait more than timeout
+ *  milliseconds for events.  This is provided to support integration
+ *  with event loops outside the library, and if used, should be
+ *  called regularly to achieve low latency event handling.
+ *
+ *  @param ctx a Strophe context object
+ *  @param timeout time to wait for events in milliseconds
+ *
+ *  @ingroup EventLoop
+ */
+void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
+{
+	xmpp_connlist_t *connitem;
+	xmpp_conn_t *conn;
+	fd_set rfds, wfds;
+	sock_t max = 0;
+	int ret;
+	struct timeval tv;
+	char buf[4096];
+	uint64_t next;
+	long usec;
+	int tls_read_bytes = 0;
+
+	if (ctx->loop_status == XMPP_LOOP_QUIT)
+		return;
+	ctx->loop_status = XMPP_LOOP_RUNNING;
 
 	/* reset parsers if needed */
 	for (connitem = ctx->connlist; connitem; connitem = connitem->next)
@@ -343,8 +385,8 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 }
 
 /** Start the event loop.
- *  This function continuously calls xmpp_run_once and does not return
- *  until xmpp_stop has been called.
+ *  This function starts sending loop thread and continuously calls
+ *  xmpp_run_once. Loop does not stop until xmpp_stop has been called.
  *
  *  @param ctx a Strophe context object
  *
@@ -352,12 +394,19 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
  */
 void xmpp_run(xmpp_ctx_t *ctx)
 {
+	thread_t *thread;
+
 	if (ctx->loop_status != XMPP_LOOP_NOTSTARTED)
 		return;
+
+	thread = thread_create(ctx, &xmpp_send_queue_thread, ctx);
+	/** @TODO check return value */
 
 	ctx->loop_status = XMPP_LOOP_RUNNING;
 	while (ctx->loop_status == XMPP_LOOP_RUNNING)
 		xmpp_run_once(ctx, DEFAULT_TIMEOUT);
+
+	/** @TODO stop sending thread */
 
 	xmpp_debug(ctx, "event", "Event loop completed.");
 }

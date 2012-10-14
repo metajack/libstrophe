@@ -11,6 +11,8 @@ PKG_CHECK_MODULES([check], [check >= 0.9.4], [], [AC_MSG_WARN([libcheck not foun
 AC_ARG_WITH([libxml2],
             [AS_HELP_STRING([--with-libxml2], [use libxml2 for XML parsing])])
 
+AC_CHECK_LIB(pthread, pthread_create, [], [AC_MSG_ERROR([pthread support is required])])
+
 if test "x$with_libxml2" = xyes; then
   PKG_CHECK_MODULES([libxml2], [libxml-2.0 >= 2.7],
                     [with_libxml2=yes],

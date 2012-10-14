@@ -40,6 +40,108 @@ struct _mutex_t {
 #endif
 };
 
+struct _thread_t {
+	const xmpp_ctx_t *ctx;
+
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	pthread_t *thread;
+#endif
+};
+
+struct _xmpp_sem_t {
+	const xmpp_ctx_t *ctx;
+
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	sem_t *sem;
+#endif
+};
+
+/* semaphore functions */
+
+xmpp_sem_t *xmpp_sem_create(const xmpp_ctx_t *ctx)
+{
+	xmpp_sem_t *sem;
+
+	sem = xmpp_alloc(ctx, sizeof(xmpp_sem_t));
+	if (!sem)
+		return NULL;
+
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	sem->sem = xmpp_alloc(ctx, sizeof(*sem->sem));
+	if (sem->sem && sem_init(sem->sem, 0, 0)) {
+		/* semaphore is allocated but not initialized */
+		xmpp_free(ctx, sem->sem);
+		sem->sem = NULL;
+	}
+#endif
+
+	if (!sem->sem) {
+		xmpp_free(ctx, sem);
+		sem = NULL;
+	} else
+		sem->ctx = ctx;
+
+	return sem;
+}
+
+void xmpp_sem_wait(xmpp_sem_t *sem)
+{
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	sem_wait(sem->sem);
+#endif
+}
+
+void xmpp_sem_post(xmpp_sem_t *sem)
+{
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	sem_post(sem->sem);
+#endif
+}
+
+/* thread functions */
+
+thread_t *thread_create(const xmpp_ctx_t *ctx, thread_func_t start_func, void *arg)
+{
+	thread_t *thread;
+
+	if (!ctx)
+		return NULL;
+
+	thread = xmpp_alloc(ctx, sizeof(thread_t));
+	if (!thread)
+		return NULL;
+
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	thread->thread = xmpp_alloc(ctx, sizeof(*thread->thread));
+	if (thread->thread &&
+	    pthread_create(thread->thread, NULL, start_func, arg)) {
+		/* thread is allocated but not initialized */
+		xmpp_free(ctx, thread->thread);
+		thread->thread = NULL;
+	}
+#endif
+
+	if (!thread->thread) {
+		xmpp_free(ctx, thread);
+		thread = NULL;
+	} else
+		thread->ctx = ctx;
+
+	return thread;
+}
+
 /* mutex functions */
 
 mutex_t *mutex_create(const xmpp_ctx_t * ctx)

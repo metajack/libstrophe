@@ -51,6 +51,7 @@
 #include "couplet.h"
 #include "common.h"
 #include "util.h"
+#include "thread.h"
 
 /** Initialize the Strophe library.
  *  This function initializes subcomponents of the Strophe library and must
@@ -396,22 +397,35 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 	else
 		ctx = mem->alloc(sizeof(xmpp_ctx_t), mem->userdata);
 
-	if (ctx != NULL) {
-		if (mem != NULL) 
-			ctx->mem = mem;
-		else 
-			ctx->mem = &xmpp_default_mem;
+	if (!ctx)
+		return NULL;
 
-		if (log == NULL)
-			ctx->log = &xmpp_default_log;
-		else
-			ctx->log = log;
+	if (!mem) 
+		ctx->mem = &xmpp_default_mem;
+	else 
+		ctx->mem = mem;
 
-		ctx->connlist = NULL;
-		ctx->loop_status = XMPP_LOOP_NOTSTARTED;
-	}
+	if (!log)
+		ctx->log = &xmpp_default_log;
+	else
+		ctx->log = log;
+
+	ctx->connlist = NULL;
+	ctx->loop_status = XMPP_LOOP_NOTSTARTED;
+	ctx->connlist_mutex = mutex_create(ctx);
+	if (!ctx->connlist_mutex)
+		goto out_free_ctx;
+	ctx->send_queue_sem = xmpp_sem_create(ctx);
+	if (!ctx->send_queue_sem)
+		goto out_free_mutex;
 
 	return ctx;
+
+out_free_mutex:
+	mutex_destroy(ctx->connlist_mutex);
+out_free_ctx:
+	xmpp_free(ctx, ctx);
+	return NULL;
 }
 
 /** Free a Strophe context object that is no longer in use.
@@ -422,6 +436,9 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
  */
 void xmpp_ctx_free(xmpp_ctx_t * const ctx)
 {
+	mutex_destroy(ctx->connlist_mutex);
+	/** @TODO destroy ctx->send_queue_sem */
+
 	/* mem and log are owned by their suppliers */
 	xmpp_free(ctx, ctx); /* pull the hole in after us */
 }
