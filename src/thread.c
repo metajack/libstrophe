@@ -111,7 +111,7 @@ void xmpp_sem_post(xmpp_sem_t *sem)
 int xmpp_sem_destroy(xmpp_sem_t *sem)
 {
 	const xmpp_ctx_t *ctx = NULL;
-	int ret;
+	int ret = 1;
 
 	if (sem)
 		ctx = sem->ctx;
