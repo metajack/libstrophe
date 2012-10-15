@@ -108,6 +108,29 @@ void xmpp_sem_post(xmpp_sem_t *sem)
 #endif
 }
 
+int xmpp_sem_destroy(xmpp_sem_t *sem)
+{
+	const xmpp_ctx_t *ctx = NULL;
+	int ret;
+
+	if (sem)
+		ctx = sem->ctx;
+	if (!ctx)
+		return 0;
+
+#ifdef _WIN32
+# error "win32 is not supported for now"
+#else
+	if (sem->sem) {
+		ret = sem_destoy(sem->sem) == 0;
+		xmpp_free(ctx, sem->sem);
+	}
+#endif
+	xmpp_free(ctx, sem);
+
+	return ret;
+}
+
 /* thread functions */
 
 thread_t *thread_create(const xmpp_ctx_t *ctx, thread_func_t start_func, void *arg)

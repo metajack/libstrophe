@@ -42,7 +42,7 @@ typedef void *(*thread_func_t) (void *);
 xmpp_sem_t *xmpp_sem_create(const xmpp_ctx_t *ctx);
 void xmpp_sem_wait(xmpp_sem_t *sem);
 void xmpp_sem_post(xmpp_sem_t *sem);
-/** @TODO create xmpp_sem_destroy() */
+int xmpp_sem_destroy(xmpp_sem_t *sem);
 
 /* thread functions */
 
