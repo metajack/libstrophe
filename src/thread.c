@@ -122,7 +122,7 @@ int xmpp_sem_destroy(xmpp_sem_t *sem)
 # error "win32 is not supported for now"
 #else
 	if (sem->sem) {
-		ret = sem_destoy(sem->sem) == 0;
+		ret = sem_destroy(sem->sem) == 0;
 		xmpp_free(ctx, sem->sem);
 	}
 #endif
