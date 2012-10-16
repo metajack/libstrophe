@@ -98,6 +98,10 @@ extern "C" {
  *  Internal failure error code.
  */
 #define XMPP_EINT -3
+/** @def XMPP_EINVAL
+ *  Invalid argument.
+ */
+#define XMPP_EINVAL -4
 
 /** @def XMPP_FQDN_MAX_LEN
  *  Maximum length of FQDN. Should be set to 255 according to RFC2181.

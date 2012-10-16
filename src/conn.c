@@ -441,7 +441,6 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
 {
 	char connectdomain[XMPP_FQDN_MAX_LEN + 1];
 	int connectport;
-	const char * domain;
 
 	conn->type = XMPP_CLIENT;
 
@@ -451,19 +450,19 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
 
 	/* @TODO replace port 5222 with a marco */
 	if (altdomain) {
+		if (strlen(altdomain) > XMPP_FQDN_MAX_LEN)
+			return XMPP_EINVAL;
 		xmpp_debug(conn->ctx, "xmpp", "Connecting via altdomain.");
 		strcpy(connectdomain, altdomain);
 		connectport = altport ? altport : 5222;
 	} else if (!sock_srv_lookup("xmpp-client", "tcp", conn->domain,
 				    connectdomain, XMPP_FQDN_MAX_LEN + 1, &connectport)) {
 		xmpp_debug(conn->ctx, "xmpp", "SRV lookup failed.");
-		if (!altdomain)
-			domain = conn->domain;
-		else
-			domain = altdomain;
-		xmpp_debug(conn->ctx, "xmpp", "Using alternate domain %s, port %d",
+		if (strlen(conn->domain) > XMPP_FQDN_MAX_LEN)
+			return XMPP_EINVAL;
+		xmpp_debug(conn->ctx, "xmpp", "Using domain %s, port %d",
 			   altdomain, altport);
-		strcpy(connectdomain, domain);
+		strcpy(connectdomain, conn->domain);
 		connectport = altport ? altport : 5222;
 	}
 	conn->sock = sock_connect(connectdomain, connectport);
