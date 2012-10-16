@@ -905,7 +905,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
     if (!set)
     {
 	snprintf(resulttarget, resulttargetlength, "%s", domain);
-	*resultport = 5222;
+	*resultport = XMPP_CLIENT_PORT;
 	return 0;
     }
 

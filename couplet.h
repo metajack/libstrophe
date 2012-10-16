@@ -104,9 +104,17 @@ extern "C" {
 #define XMPP_EINVAL -4
 
 /** @def XMPP_FQDN_MAX_LEN
- *  Maximum length of FQDN. Should be set to 255 according to RFC2181.
+ *  Maximum length of FQDN.
+ *
+ *  Should be set to 255 according to RFC2181.
  */
 #define XMPP_FQDN_MAX_LEN 255
+/** @def XMPP_CLIENT_PORT
+ *  Default xmpp-client TCP port.
+ *
+ *  The recomended port is 5222 according to RFC3920.
+ */
+#define XMPP_CLIENT_PORT 5222
 
 /* initialization and shutdown */
 void xmpp_initialize(void);
