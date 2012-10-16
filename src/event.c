@@ -60,8 +60,11 @@
 #define DEFAULT_TIMEOUT 1
 #endif
 
+/* Get the next item from the send queue.
+ * This function removes returned item from the queue
+ */
 static xmpp_send_queue_t *
-xmpp_send_queue_next(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
+_xmpp_send_queue_next(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
 {
 	xmpp_send_queue_t *sq;
 	mutex_lock(conn->send_queue_mutex);
@@ -76,8 +79,9 @@ xmpp_send_queue_next(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
 	return sq;
 }
 
+/* Insert item to the head of the send queue */
 static void
-xmpp_send_queue_ins(xmpp_ctx_t *ctx, xmpp_conn_t *conn, xmpp_send_queue_t *sq)
+_xmpp_send_queue_ins(xmpp_ctx_t *ctx, xmpp_conn_t *conn, xmpp_send_queue_t *sq)
 {
 	mutex_lock(conn->send_queue_mutex);
 	sq->next = conn->send_queue_head;
@@ -129,7 +133,7 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 		}
 
 		/* write all data from the send queue to the socket */
-		sq = xmpp_send_queue_next(ctx, conn);
+		sq = _xmpp_send_queue_next(ctx, conn);
 		while (sq) {
 			sent = 1;
 			towrite = sq->len - sq->written;
@@ -165,14 +169,14 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 
 			if (!sent) {
 				/* insert sq to the head of send queue */
-				xmpp_send_queue_ins(ctx, conn, sq);
+				_xmpp_send_queue_ins(ctx, conn, sq);
 				break;
 			}
 
 			/* all data for this queue item written, delete and move on */
 			xmpp_free(ctx, sq->data);
 			xmpp_free(ctx, sq);
-			sq = xmpp_send_queue_next(ctx, conn);
+			sq = _xmpp_send_queue_next(ctx, conn);
 		}
 
 		/* tear down connection on error */
