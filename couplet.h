@@ -99,6 +99,11 @@ extern "C" {
  */
 #define XMPP_EINT -3
 
+/** @def XMPP_FQDN_MAX_LEN
+ *  Maximum length of FQDN. Should be set to 255 according to RFC2181.
+ */
+#define XMPP_FQDN_MAX_LEN 255
+
 /* initialization and shutdown */
 void xmpp_initialize(void);
 void xmpp_shutdown(void);
