@@ -42,6 +42,7 @@
 #endif
 
 #include "sock.h"
+#include "couplet.h"
 
 void sock_initialize(void)
 {
