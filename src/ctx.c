@@ -263,7 +263,7 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
 		bigbuf = (char *)xmpp_alloc(ctx, ret + 1);
 		if (!bigbuf) {
 			bigbuf = NULL;
-			/* @TODO avoid recursive calls */
+			/** @TODO avoid recursive calls */
 			xmpp_error(ctx, "log", "Failed allocating memory for log message.");
 			return;
 		}
@@ -273,7 +273,7 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
 		va_end(ap_copy);
 
 		if (ret > oldret) {
-			/* @TODO avoid recursive calls */
+			/** @TODO avoid recursive calls */
 			xmpp_error(ctx, "log", "Unexpected error");
 			xmpp_free(ctx, bigbuf);
 			return;
