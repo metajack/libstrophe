@@ -437,7 +437,7 @@ out_free_ctx:
 void xmpp_ctx_free(xmpp_ctx_t * const ctx)
 {
 	mutex_destroy(ctx->connlist_mutex);
-	/** @TODO destroy ctx->send_queue_sem */
+	xmpp_sem_destroy(ctx->send_queue_sem);
 
 	/* mem and log are owned by their suppliers */
 	xmpp_free(ctx, ctx); /* pull the hole in after us */
