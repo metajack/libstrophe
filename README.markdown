@@ -35,6 +35,14 @@ check package.
 
 Windows systems aren't supported for now.
 
+### Gentoo
+
+libcouplet can be installed from Gentoo overlay 'stuff':
+
+    layman -a stuff
+    echo =dev-libs/libcouplet-9999 ** >> /etc/portage/package.keywords
+    emerge libcouplet
+
 ### OS X (with Homebrew package manager)
 
 You can install the requirements with:
