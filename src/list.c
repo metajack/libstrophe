@@ -21,6 +21,10 @@ list_head_t *list_init(const xmpp_ctx_t * const ctx)
 {
 }
 
+void list_destroy(list_head_t *list)
+{
+}
+
 list_t *list_init_item(const xmpp_ctx_t * const ctx)
 {
 }
@@ -37,11 +41,15 @@ list_t *list_get_last(const list_head_t * const list)
 {
 }
 
-list_t *list_pull_first(const list_head_t * const list)
+list_t *list_pull_first(list_head_t * const list)
 {
 }
 
-list_t *list_pull_last(const list_head_t * const list)
+list_t *list_pull_next(list_head_t * const list, list_t * const item)
+{
+}
+
+list_t *list_pull_last(list_head_t * const list)
 {
 }
 
