@@ -16,6 +16,8 @@
  */
 
 #include "list.h"
+#include "couplet.h"
+#include "common.h"
 
 /** Create new list.
  *
@@ -23,7 +25,7 @@
  *
  *  @return a pointer to allocated list_head_t structure or NULL pointer
  */
-list_head_t *list_init(const xmpp_ctx_t * const ctx)
+list_head_t *list_init(xmpp_ctx_t * const ctx)
 {
 	list_head_t *list;
 

@@ -133,11 +133,8 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	/* default send parameters */
 	conn->blocking_send = 0;
 	conn->send_queue_max = DEFAULT_SEND_QUEUE_MAX;
-	conn->send_queue_len = 0;
-	conn->send_queue_head = NULL;
-	conn->send_queue_tail = NULL;
-	conn->send_queue_mutex = mutex_create(ctx);
-	if (!conn->send_queue_mutex)
+	conn->send_queue = list_init(ctx);
+	if (!conn->send_queue)
 		goto out_free_conn;
 
 	/* default timeouts */
@@ -145,7 +142,7 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 
 	conn->lang = xmpp_strdup(ctx, "en");
 	if (!conn->lang)
-		goto out_free_mutex;
+		goto out_free_send_queue;
 
 	conn->domain = NULL;
 	conn->jid = NULL;
@@ -200,8 +197,8 @@ out_free_parser:
 	parser_free(conn->parser);
 out_free_lang:
 	xmpp_free(ctx, conn->lang);
-out_free_mutex:
-	mutex_destroy(conn->send_queue_mutex);
+out_free_send_queue:
+	list_destroy(conn->send_queue);
 out_free_conn:
 	xmpp_free(ctx, conn);
 	return NULL;
@@ -302,8 +299,7 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 	parser_free(conn->parser);
 
 	/* free send_queue */
-	/* @TODO release send_queue */
-	mutex_destroy(conn->send_queue_mutex);
+	list_destroy(conn->send_queue);
 
 	if (conn->domain)
 		xmpp_free(ctx, conn->domain);
@@ -632,7 +628,8 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
 		   const char * const data, const size_t len)
 {
 	xmpp_ctx_t *ctx;
-	xmpp_send_queue_t *item;
+	xmpp_send_queue_t *sq;
+	list_t *item;
 
 	if (conn->state != XMPP_STATE_CONNECTED)
 		return;
@@ -640,35 +637,34 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
 	ctx = conn->ctx;
 
 	/* create send queue item for queue */
-	item = xmpp_alloc(ctx, sizeof(xmpp_send_queue_t));
-	if (!item)
+	sq = xmpp_alloc(ctx, sizeof(xmpp_send_queue_t));
+	if (!sq)
 		return;
 
-	item->data = xmpp_alloc(ctx, len);
-	if (!item->data) {
-		xmpp_free(ctx, item);
-		return;
-	}
-	memcpy(item->data, data, len);
-	item->len = len;
-	item->next = NULL;
-	item->written = 0;
+	sq->data = xmpp_alloc(ctx, len);
+	if (!sq->data)
+		goto out_free_sq;
+
+	item = list_init_item(ctx);
+	if (!item)
+		goto out_free_data;
+
+	memcpy(sq->data, data, len);
+	sq->len = len;
+	sq->written = 0;
+	item->data = (void *)sq;
 
 	/* add item to the send queue */
-	mutex_lock(conn->send_queue_mutex);
-	if (!conn->send_queue_tail) {
-		/* first item, set head and tail */
-		conn->send_queue_head = item;
-		conn->send_queue_tail = item;
-	} else {
-		/* add to the tail */
-		conn->send_queue_tail->next = item;
-		conn->send_queue_tail = item;
-	}
-	conn->send_queue_len++;
-	mutex_unlock(conn->send_queue_mutex);
+	list_push(conn->send_queue, item);
 	/* unlock send_queue_thread */
 	xmpp_sem_post(ctx->send_queue_sem);
+
+	return;
+
+out_free_data:
+	xmpp_free(ctx, sq->data);
+out_free_sq:
+	xmpp_free(ctx, sq);
 }
 
 /** Send an XML stanza to the XMPP server.

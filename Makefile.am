@@ -18,9 +18,10 @@ libcouplet_la_SOURCES = src/auth.c src/conn.c src/ctx.c \
 	src/event.c src/handler.c src/hash.c \
 	src/jid.c src/md5.c src/sasl.c src/sha1.c \
 	src/snprintf.c src/sock.c src/stanza.c src/thread.c \
-	src/tls_openssl.c src/util.c \
+	src/tls_openssl.c src/util.c src/list.c \
 	src/common.h src/hash.h src/md5.h src/ostypes.h src/parser.h \
-	src/sasl.h src/sha1.h src/sock.h src/thread.h src/tls.h src/util.h
+	src/sasl.h src/sha1.h src/sock.h src/thread.h src/tls.h src/util.h \
+	src/list.h
 
 if PARSER_EXPAT
 libcouplet_la_SOURCES += src/parser_expat.c

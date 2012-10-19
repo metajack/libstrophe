@@ -60,38 +60,6 @@
 #define DEFAULT_TIMEOUT 1
 #endif
 
-/* Get the next item from the send queue.
- * This function removes returned item from the queue
- */
-static xmpp_send_queue_t *
-_xmpp_send_queue_next(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
-{
-	xmpp_send_queue_t *sq;
-	mutex_lock(conn->send_queue_mutex);
-	sq = conn->send_queue_head;
-	if (sq) {
-		conn->send_queue_head = sq->next;
-		if (!sq->next)
-			conn->send_queue_tail = NULL;
-		conn->send_queue_len--;
-	}
-	mutex_unlock(conn->send_queue_mutex);
-	return sq;
-}
-
-/* Insert item to the head of the send queue */
-static void
-_xmpp_send_queue_ins(xmpp_ctx_t *ctx, xmpp_conn_t *conn, xmpp_send_queue_t *sq)
-{
-	mutex_lock(conn->send_queue_mutex);
-	sq->next = conn->send_queue_head;
-	conn->send_queue_head = sq;
-	if (!sq->next)
-		conn->send_queue_tail = sq;
-	conn->send_queue_len++;
-	mutex_unlock(conn->send_queue_mutex);
-}
-
 /** Run send loop once.
  *  This function will run send any data that has been queued by xmpp_send
  *  and related functions.
@@ -105,6 +73,7 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 	xmpp_connlist_t *connitem;
 	xmpp_conn_t *conn;
 	xmpp_send_queue_t *sq;
+	list_t *item;
 	int sent;
 	int ret;
 	int towrite;
@@ -133,9 +102,10 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 		}
 
 		/* write all data from the send queue to the socket */
-		sq = _xmpp_send_queue_next(ctx, conn);
-		while (sq) {
+		item = list_shift(conn->send_queue);
+		while (item) {
 			sent = 1;
+			sq = (xmpp_send_queue_t *)item->data;
 			towrite = sq->len - sq->written;
 
 			if (conn->tls) {
@@ -169,14 +139,15 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 
 			if (!sent) {
 				/* insert sq to the head of send queue */
-				_xmpp_send_queue_ins(ctx, conn, sq);
+				list_insert(conn->send_queue, item);
 				break;
 			}
 
 			/* all data for this queue item written, delete and move on */
 			xmpp_free(ctx, sq->data);
 			xmpp_free(ctx, sq);
-			sq = _xmpp_send_queue_next(ctx, conn);
+			xmpp_free(ctx, item);
+			item = list_shift(conn->send_queue);
 		}
 
 		/* tear down connection on error */

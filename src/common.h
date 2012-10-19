@@ -33,6 +33,7 @@
 #include "util.h"
 #include "parser.h"
 #include "thread.h"
+#include "list.h"
 
 /** run-time context **/
 
@@ -113,8 +114,6 @@ struct _xmpp_send_queue_t {
 	char *data;
 	size_t len;
 	size_t written;
-
-	xmpp_send_queue_t *next;
 };
 
 typedef struct _xmpp_handlist_t xmpp_handlist_t;
@@ -188,10 +187,7 @@ struct _xmpp_conn_t {
 	/* send queue and parameters */
 	int blocking_send;
 	int send_queue_max;
-	int send_queue_len;
-	xmpp_send_queue_t *send_queue_head;
-	xmpp_send_queue_t *send_queue_tail;
-	mutex_t *send_queue_mutex;
+	list_head_t *send_queue;
 
 	/* xml parser */
 	int reset_parser;

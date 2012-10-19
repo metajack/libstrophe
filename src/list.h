@@ -37,7 +37,7 @@ struct _list_head_t {
 
 typedef struct _list_head_t list_head_t;
 
-list_head_t *list_init(const xmpp_ctx_t * const ctx);
+list_head_t *list_init(xmpp_ctx_t * const ctx);
 void list_destroy(list_head_t *list);
 list_t *list_init_item(const xmpp_ctx_t * const ctx);
 list_t *list_get_first(const list_head_t * const list);
@@ -51,12 +51,12 @@ void list_insert_after(list_head_t * const list, list_t * const item, list_t * c
 void list_push(list_head_t * const list, list_t * const item);
 void list_update(list_head_t * const list, list_t * const item, const void * const data);
 
-inline void list_lock(const list_head_t * const list)
+static inline void list_lock_mutex(const list_head_t * const list)
 {
 	mutex_lock(list->mutex);
 }
 
-inline void list_unlock(const list_head_t * const list)
+static inline void list_unlock_mutex(const list_head_t * const list)
 {
 	mutex_unlock(list->mutex);
 }
