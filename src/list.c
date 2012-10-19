@@ -89,7 +89,7 @@ list_t *list_get_last(const list_head_t * const list)
  *
  *  @return pointer to the first element or NULL pointer if such doesn't exist
  */
-list_t *list_pull_first(list_head_t * const list)
+list_t *list_shift(list_head_t * const list)
 {
 	list_t *item;
 
@@ -105,11 +105,11 @@ list_t *list_pull_first(list_head_t * const list)
 	return item;
 }
 
-list_t *list_pull_next(list_head_t * const list, list_t * const item)
+list_t *list_shift_next(list_head_t * const list, list_t * const item)
 {
 }
 
-list_t *list_pull_last(list_head_t * const list)
+list_t *list_pop(list_head_t * const list)
 {
 }
 
@@ -140,7 +140,7 @@ void list_insert_after(list_head_t * const list, list_t * const item, list_t * c
  *  @param list a list object
  *  @param item an element
  */
-void list_append(list_head_t * const list, list_t * const item)
+void list_push(list_head_t * const list, list_t * const item)
 {
 	if (!item)
 		return;
