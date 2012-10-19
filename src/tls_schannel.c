@@ -218,16 +218,16 @@ int tls_start(tls_t *tls)
     /* search the ctx's conns for our sock, and use the domain there as our
      * name */
     {
-	xmpp_connlist_t *listentry = tls->ctx->connlist;
+	list_t *listentry = list_get_first(tls->ctx->connlist);
 
 	while (listentry) {
-	    xmpp_conn_t *conn = listentry->conn;
+	    xmpp_conn_t *conn = (xmpp_conn_t *)listentry->data;
 
 	    if (conn->sock == tls->sock) {
 		name = strdup(conn->domain);
 		listentry = NULL;
 	    } else {
-		listentry = listentry->next;
+		listentry = list_get_next(tls->ctx->connlist, listentry);
 	    }
 	}
     }

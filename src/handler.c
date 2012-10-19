@@ -31,6 +31,7 @@
 
 #include "couplet.h"
 #include "common.h"
+#include "list.h"
 
 /** Fire off all stanza handlers that match.
  *  This function is called internally by the event loop whenever stanzas
@@ -138,61 +139,64 @@ void handler_fire_stanza(xmpp_conn_t * const conn,
  */
 uint64_t handler_fire_timed(xmpp_ctx_t * const ctx)
 {
-    xmpp_connlist_t *connitem;
-    xmpp_handlist_t *handitem, *temp;
-    int ret, fired;
-    uint64_t elapsed, min;
+	list_t *connitem;
+	xmpp_handlist_t *handitem, *temp;
+	xmpp_conn_t *conn;
+	int ret, fired;
+	uint64_t elapsed, min;
 
-    min = (uint64_t)(-1);
+	min = (uint64_t)(-1);
 
-    connitem = ctx->connlist;
-    while (connitem) {
-	if (connitem->conn->state != XMPP_STATE_CONNECTED) {
-	    connitem = connitem->next;
-	    continue;
+	connitem = list_get_first(ctx->connlist);
+	while (connitem) {
+		conn = (xmpp_conn_t *)connitem->data;
+		if (conn->state != XMPP_STATE_CONNECTED)
+			goto loop_connitem_next;
+
+		/* enable all handlers that were added */
+		handitem = conn->timed_handlers;
+		while (handitem) {
+			handitem->enabled = 1;
+			handitem = handitem->next;
+		}
+
+		handitem = conn->timed_handlers;
+		while (handitem) {
+			/* skip newly added handlers */
+			if (!handitem->enabled) {
+				handitem = handitem->next;
+				continue;
+			}
+
+			/* only fire user handlers after authentication */
+			if (handitem->user_handler && !conn->authenticated) {
+				handitem = handitem->next;
+				continue;
+			}
+
+			fired = 0;
+			elapsed = time_elapsed(handitem->last_stamp, time_stamp());
+			if (elapsed >= handitem->period) {
+				/* fire! */
+				fired = 1;
+				handitem->last_stamp = time_stamp();
+				ret = ((xmpp_timed_handler)handitem->handler)(conn, handitem->userdata);
+			} else if (min > (handitem->period - elapsed))
+				min = handitem->period - elapsed;
+
+			temp = handitem;
+			handitem = handitem->next;
+
+			/* delete handler if it returned false */
+			if (fired && !ret)
+				xmpp_timed_handler_delete(conn, temp->handler);
+		}
+
+loop_connitem_next:
+		connitem = list_get_next(ctx->connlist, connitem);
 	}
-	
-	/* enable all handlers that were added */
-	for (handitem = connitem->conn->timed_handlers; handitem;
-	     handitem = handitem->next)
-	    handitem->enabled = 1;
 
-	handitem = connitem->conn->timed_handlers;
-	while (handitem) {
-	    /* skip newly added handlers */
-	    if (!handitem->enabled) {
-		handitem = handitem->next;
-		continue;
-	    }
-
-	    /* only fire user handlers after authentication */
-	    if (handitem->user_handler && !connitem->conn->authenticated) {
-		handitem = handitem->next;
-		continue;
-	    }
-
-	    fired = 0;
-	    elapsed = time_elapsed(handitem->last_stamp, time_stamp());
-	    if (elapsed >= handitem->period) {
-		/* fire! */
-		fired = 1;
-		handitem->last_stamp = time_stamp();
-		ret = ((xmpp_timed_handler)handitem->handler)(connitem->conn, handitem->userdata);
-	    } else if (min > (handitem->period - elapsed))
-		min = handitem->period - elapsed;
-		
-	    temp = handitem;
-	    handitem = handitem->next;
-
-	    /* delete handler if it returned false */
-	    if (fired && !ret)
-		xmpp_timed_handler_delete(connitem->conn, temp->handler);
-	}
-
-	connitem = connitem->next;
-    }
-
-    return min;
+	return min;
 }
 
 /** Reset all timed handlers.

@@ -43,18 +43,12 @@ typedef enum {
 	XMPP_LOOP_QUIT
 } xmpp_loop_status_t;
 
-typedef struct _xmpp_connlist_t {
-	xmpp_conn_t *conn;
-	struct _xmpp_connlist_t *next;
-} xmpp_connlist_t;
-
 struct _xmpp_ctx_t {
 	const xmpp_mem_t *mem;
 	const xmpp_log_t *log;
 
 	xmpp_loop_status_t loop_status;
-	xmpp_connlist_t *connlist;
-	mutex_t *connlist_mutex;
+	list_head_t *connlist;
 	xmpp_sem_t *send_queue_sem;
 };
 

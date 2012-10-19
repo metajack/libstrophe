@@ -51,6 +51,7 @@
 #include "common.h"
 #include "parser.h"
 #include "thread.h"
+#include "list.h"
 
 #ifndef DEFAULT_TIMEOUT
 /** @def DEFAULT_TIMEOUT
@@ -70,23 +71,20 @@
  */
 void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 {
-	xmpp_connlist_t *connitem;
+	list_t *connitem;
+	list_t *sqitem;
 	xmpp_conn_t *conn;
 	xmpp_send_queue_t *sq;
-	list_t *item;
 	int sent;
 	int ret;
 	int towrite;
 
-	/** @TODO lock connlist with ctx->connlist_mutex */
 	/* send queued data */
-	connitem = ctx->connlist;
+	connitem = list_get_first(ctx->connlist);
 	while (connitem) {
-		conn = connitem->conn;
-		if (conn->state != XMPP_STATE_CONNECTED) {
-			connitem = connitem->next;
-			continue;
-		}
+		conn = (xmpp_conn_t *)connitem->data;
+		if (conn->state != XMPP_STATE_CONNECTED)
+			goto loop_next;
 
 		/* if we're running tls, there may be some remaining data waiting to
 		 * be sent, so push that out */
@@ -102,10 +100,10 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 		}
 
 		/* write all data from the send queue to the socket */
-		item = list_shift(conn->send_queue);
-		while (item) {
+		sqitem = list_shift(conn->send_queue);
+		while (sqitem) {
 			sent = 1;
-			sq = (xmpp_send_queue_t *)item->data;
+			sq = (xmpp_send_queue_t *)sqitem->data;
 			towrite = sq->len - sq->written;
 
 			if (conn->tls) {
@@ -139,15 +137,15 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 
 			if (!sent) {
 				/* insert sq to the head of send queue */
-				list_insert(conn->send_queue, item);
+				list_insert(conn->send_queue, sqitem);
 				break;
 			}
 
 			/* all data for this queue item written, delete and move on */
 			xmpp_free(ctx, sq->data);
 			xmpp_free(ctx, sq);
-			xmpp_free(ctx, item);
-			item = list_shift(conn->send_queue);
+			xmpp_free(ctx, sqitem);
+			sqitem = list_shift(conn->send_queue);
 		}
 
 		/* tear down connection on error */
@@ -158,8 +156,9 @@ void xmpp_run_send_queue_once(xmpp_ctx_t *ctx)
 			conn->error = ECONNABORTED;
 			conn_disconnect(conn);
 		}
-	
-		connitem = connitem->next;
+
+loop_next:
+		connitem = list_get_next(ctx->connlist, connitem);
 	}
 }
 
@@ -205,7 +204,7 @@ void *xmpp_send_queue_thread(void *data)
  */
 void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 {
-	xmpp_connlist_t *connitem;
+	list_t *connitem;
 	xmpp_conn_t *conn;
 	fd_set rfds, wfds;
 	sock_t max = 0;
@@ -221,9 +220,13 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	ctx->loop_status = XMPP_LOOP_RUNNING;
 
 	/* reset parsers if needed */
-	for (connitem = ctx->connlist; connitem; connitem = connitem->next)
-		if (connitem->conn->reset_parser)
-			conn_parser_reset(connitem->conn);
+	connitem = list_get_first(ctx->connlist);
+	while (connitem) {
+		conn = (xmpp_conn_t *)connitem->data;
+		if (conn->reset_parser)
+			conn_parser_reset(conn);
+		connitem = list_get_next(ctx->connlist, connitem);
+	}
 
 	/* fire any ready timed handlers, then
 	 * make sure we don't wait past the time when timed handlers need 
@@ -238,9 +241,9 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	FD_ZERO(&wfds);
 
 	/* find events to watch */
-	connitem = ctx->connlist;
+	connitem = list_get_first(ctx->connlist);
 	while (connitem) {
-		conn = connitem->conn;
+		conn = (xmpp_conn_t *)connitem->data;
 	
 		switch (conn->state) {
 		case XMPP_STATE_CONNECTING:
@@ -273,7 +276,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		if (conn->sock > max)
 			max = conn->sock;
 
-		connitem = connitem->next;
+		connitem = list_get_next(ctx->connlist, connitem);
 	}
 
 	/* check for events */
@@ -292,9 +295,9 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		return;
 
 	/* process events */
-	connitem = ctx->connlist;
+	connitem = list_get_first(ctx->connlist);
 	while (connitem) {
-		conn = connitem->conn;
+		conn = (xmpp_conn_t *)connitem->data;
 
 		switch (conn->state) {
 		case XMPP_STATE_CONNECTING:
@@ -353,7 +356,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 			break;
 		}
 
-		connitem = connitem->next;
+		connitem = list_get_next(ctx->connlist, connitem);
 	}
 
 	/* fire any ready handlers */

@@ -52,6 +52,7 @@
 #include "common.h"
 #include "util.h"
 #include "thread.h"
+#include "list.h"
 
 /** Initialize the Strophe library.
  *  This function initializes subcomponents of the Strophe library and must
@@ -410,19 +411,18 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 	else
 		ctx->log = log;
 
-	ctx->connlist = NULL;
 	ctx->loop_status = XMPP_LOOP_NOTSTARTED;
-	ctx->connlist_mutex = mutex_create(ctx);
-	if (!ctx->connlist_mutex)
+	ctx->connlist = list_init(ctx);
+	if (!ctx->connlist)
 		goto out_free_ctx;
 	ctx->send_queue_sem = xmpp_sem_create(ctx);
 	if (!ctx->send_queue_sem)
-		goto out_free_mutex;
+		goto out_free_connlist;
 
 	return ctx;
 
-out_free_mutex:
-	mutex_destroy(ctx->connlist_mutex);
+out_free_connlist:
+	list_destroy(ctx->connlist);
 out_free_ctx:
 	xmpp_free(ctx, ctx);
 	return NULL;
@@ -436,7 +436,7 @@ out_free_ctx:
  */
 void xmpp_ctx_free(xmpp_ctx_t * const ctx)
 {
-	mutex_destroy(ctx->connlist_mutex);
+	list_destroy(ctx->connlist);
 	xmpp_sem_destroy(ctx->send_queue_sem);
 
 	/* mem and log are owned by their suppliers */

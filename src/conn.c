@@ -29,6 +29,7 @@
 #include "util.h"
 #include "parser.h"
 #include "thread.h"
+#include "list.h"
 
 #ifndef DEFAULT_SEND_QUEUE_MAX
 /** @def DEFAULT_SEND_QUEUE_MAX
@@ -58,48 +59,6 @@ static void _handle_stream_start(char *name, char **attrs,
 static void _handle_stream_end(char *name, void * const userdata);
 static void _handle_stream_stanza(xmpp_stanza_t *stanza, void * const userdata);
 
-/* insert connlist item to the tail */
-static void _xmpp_connlist_ins(xmpp_ctx_t *ctx, xmpp_connlist_t *item)
-{
-	xmpp_connlist_t *tail;
-
-	mutex_lock(ctx->connlist_mutex);
-	tail = ctx->connlist;
-	while (tail && tail->next)
-		tail = tail->next;
-	if (!tail)
-		ctx->connlist = item;
-	else
-		tail->next = item;
-	mutex_unlock(ctx->connlist_mutex);
-}
-
-/* delete connlist item specified by conn
- * return TRUE if conn is found within connlist and FALSE otherwise
- */
-static int _xmpp_connlist_del(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
-{
-	xmpp_connlist_t *item, *prev;
-
-	prev = NULL;
-	mutex_lock(ctx->connlist_mutex);
-	item = ctx->connlist;
-	while (item && item->conn != conn) {
-		prev = item;
-		item = item->next;
-	}
-	if (item) {
-		if (!prev)
-			ctx->connlist = item->next;
-		else
-			prev->next = item->next;
-		xmpp_free(ctx, item);
-	}
-	mutex_unlock(ctx->connlist_mutex);
-
-	return !item;
-}
-
 /** Create a new Strophe connection object.
  *
  *  @param ctx a Strophe context object
@@ -111,7 +70,7 @@ static int _xmpp_connlist_del(xmpp_ctx_t *ctx, xmpp_conn_t *conn)
 xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 {
 	xmpp_conn_t *conn;
-	xmpp_connlist_t *item;
+	list_t *item;
 
 	if (!ctx)
 		return NULL;
@@ -181,14 +140,12 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	conn->ref = 1;
 
 	/* add connection to ctx->connlist */
-	item = xmpp_alloc(ctx, sizeof(xmpp_connlist_t));
-	if (!item) {
-		xmpp_error(ctx, "xmpp", "failed to allocate memory");
+	item = list_init_item(ctx);
+	if (!item)
 		goto out_free_parser;
-	} else {
-		item->conn = conn;
-		item->next = NULL;
-		_xmpp_connlist_ins(ctx, item);
+	else {
+		item->data = (void *)conn;
+		list_push(ctx->connlist, item);
 	}
 
 	return conn;
@@ -232,6 +189,7 @@ xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t * const conn)
 int xmpp_conn_release(xmpp_conn_t * const conn)
 {
 	xmpp_ctx_t *ctx;
+	list_t *item;
 	xmpp_handlist_t *hlitem, *thli;
 	hash_iterator_t *iter;
 	const char *key;
@@ -244,7 +202,10 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 	ctx = conn->ctx;
 
 	/* remove connection from context's connlist */
-	if (!_xmpp_connlist_del(ctx, conn))
+	item = list_pop_by_data(ctx->connlist, (void *)conn);
+	if (item)
+		xmpp_free(ctx, item);
+	else
 		xmpp_error(ctx, "xmpp", "Connection not in context's list\n");
 
 	/* free handler stuff
