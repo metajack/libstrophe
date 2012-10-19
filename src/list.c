@@ -80,12 +80,40 @@ list_t *list_init_item(const xmpp_ctx_t * const ctx)
 	return item;
 }
 
+/** Get the first element of the list
+ *  Function just returns head of the list
+ *
+ *  @param list a list object
+ *
+ *  @return pointer to head of the list or NULL pointer if the list is empty
+ */
 list_t *list_get_first(const list_head_t * const list)
 {
+	list_t *item;
+
+	mutex_lock(list->mutex);
+	item = list->head;
+	mutex_unlock(list->mutex);
+
+	return item;
 }
 
+/** Get element that follows the item
+ *
+ *  @param list a list object
+ *  @param item s list item object
+ *
+ *  @return pointer to the next element if exists or NULL pointer otherwise
+ */
 list_t *list_get_next(const list_head_t * const list, const list_t * const item)
 {
+	list_t *next;
+
+	mutex_lock(list->mutex);
+	next = item->next;
+	mutex_unlock(list->mutex);
+
+	return next;
 }
 
 list_t *list_get_last(const list_head_t * const list)
@@ -114,8 +142,37 @@ list_t *list_shift(list_head_t * const list)
 	return item;
 }
 
-list_t *list_shift_next(list_head_t * const list, list_t * const item)
+/** Remove the item if exists
+ *  Function searches the item within the list and removes it if exists
+ *
+ *  @param list a list object
+ *  @param item list element for search
+ *
+ *  @return pointer to the item if it was removed and NULL pointer otherwise
+ */
+list_t *list_pop_by_data(list_head_t * const list, const void * const data)
 {
+	list_t *prev = NULL;
+	list_t *cur;
+
+	mutex_lock(list->mutex);
+	cur = list->head;
+	while (cur) {
+		if (cur->data == data) {
+			if (prev)
+				prev->next = cur->next;
+			else
+				list->head = cur->next;
+			if (!cur->next)
+				list->tail = prev;
+			break;
+		}
+		prev = cur;
+		cur = cur->next;
+	}
+	mutex_unlock(list->mutex);
+
+	return cur;
 }
 
 list_t *list_pop(list_head_t * const list)
