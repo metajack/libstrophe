@@ -47,8 +47,15 @@ list_head_t *list_init(xmpp_ctx_t * const ctx)
 	return list;
 }
 
+/** Destroy the list
+ *
+ *  @param list a list object
+ */
 void list_destroy(list_head_t *list)
 {
+	/** @TODO avoid memory leak issue when the list isn't empty */
+	mutex_destroy(list->mutex);
+	xmpp_free(list->ctx, list);
 }
 
 /** Create new list item
