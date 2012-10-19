@@ -1,4 +1,4 @@
-/* strophe.h
+/* couplet.h
 ** strophe XMPP client library C API
 **
 ** Copyright (C) 2005-2009 Collecta, Inc.
@@ -98,6 +98,23 @@ extern "C" {
  *  Internal failure error code.
  */
 #define XMPP_EINT -3
+/** @def XMPP_EINVAL
+ *  Invalid argument.
+ */
+#define XMPP_EINVAL -4
+
+/** @def XMPP_FQDN_MAX_LEN
+ *  Maximum length of FQDN.
+ *
+ *  Should be set to 255 according to RFC2181.
+ */
+#define XMPP_FQDN_MAX_LEN 255
+/** @def XMPP_CLIENT_PORT
+ *  Default xmpp-client TCP port.
+ *
+ *  The recomended port is 5222 according to RFC3920.
+ */
+#define XMPP_CLIENT_PORT 5222
 
 /* initialization and shutdown */
 void xmpp_initialize(void);
@@ -363,6 +380,7 @@ void xmpp_presence_new();
 */
 
 /** event loop **/
+void xmpp_run_send_queue_once(xmpp_ctx_t *ctx);
 void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long  timeout);
 void xmpp_run(xmpp_ctx_t *ctx);
 void xmpp_stop(xmpp_ctx_t *ctx);

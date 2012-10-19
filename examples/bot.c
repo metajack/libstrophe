@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <strophe.h>
+#include <couplet.h>
 
 
 int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata)

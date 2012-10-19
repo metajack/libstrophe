@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 
-#include <strophe.h>
+#include <couplet.h>
 
 
 /* define a handler for connection events */

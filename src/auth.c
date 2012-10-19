@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "strophe.h"
+#include "couplet.h"
 #include "common.h"
 #include "sasl.h"
 
@@ -56,7 +56,6 @@
 #endif
 
 static void _auth(xmpp_conn_t * const conn);
-static void _handle_open_tls(xmpp_conn_t * const conn);
 static void _handle_open_sasl(xmpp_conn_t * const conn);
 static int _handle_missing_legacy(xmpp_conn_t * const conn,
 				  void * const userdata);

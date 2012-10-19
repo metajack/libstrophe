@@ -22,7 +22,7 @@
 
 #include <expat.h>
 
-#include <strophe.h>
+#include "couplet.h"
 #include "common.h"
 #include "parser.h"
 

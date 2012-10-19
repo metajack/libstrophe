@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "strophe.h"
+#include "couplet.h"
 #include "common.h"
 
 static const char jid1[] = "foo@bar.com";

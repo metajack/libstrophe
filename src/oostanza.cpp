@@ -12,8 +12,8 @@
 **  distribution.
 */
 
-#include "strophe.h"
-#include "strophepp.h"
+#include "couplet.h"
+#include "coupletpp.h"
 
 using namespace XMPP;
 
