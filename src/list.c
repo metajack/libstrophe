@@ -116,8 +116,22 @@ list_t *list_get_next(const list_head_t * const list, const list_t * const item)
 	return next;
 }
 
+/** Get the last element of the list
+ *  Function just returns tail of the list
+ *
+ *  @param list a list object
+ *
+ *  @return pointer to tail of the list or NULL pointer if the list is empty
+ */
 list_t *list_get_last(const list_head_t * const list)
 {
+	list_t *last;
+
+	mutex_lock(list->mutex);
+	last = list->tail;
+	mutex_unlock(list->mutex);
+
+	return last;
 }
 
 /** Get the first element of the list and remove it
