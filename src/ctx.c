@@ -388,7 +388,7 @@ void xmpp_debug(const xmpp_ctx_t * const ctx,
  *
  *  @ingroup Context
  */
-xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem, 
+xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 			 const xmpp_log_t * const log)
 {
 	xmpp_ctx_t *ctx = NULL;
@@ -401,9 +401,9 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 	if (!ctx)
 		return NULL;
 
-	if (!mem) 
+	if (!mem)
 		ctx->mem = &xmpp_default_mem;
-	else 
+	else
 		ctx->mem = mem;
 
 	if (!log)

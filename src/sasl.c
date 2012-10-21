@@ -359,7 +359,7 @@ char *sasl_digest_md5(xmpp_ctx_t *ctx, const char *challenge,
 	result = _add_key(ctx, table, "digest-uri", result, &rlen, 1);
 	result = _add_key(ctx, table, "response", result, &rlen, 0);
 	result = _add_key(ctx, table, "charset", result, &rlen, 0);
- 
+
 	xmpp_free(ctx, node);
 	xmpp_free(ctx, domain);
 	hash_release(table); /* also frees value strings */
@@ -469,7 +469,7 @@ char *base64_encode(xmpp_ctx_t *ctx,
 	return cbuf;
 }
 
-int base64_decoded_len(xmpp_ctx_t *ctx, 
+int base64_decoded_len(xmpp_ctx_t *ctx,
 		       const char * const buffer, const unsigned len)
 {
 	int nudge;
@@ -488,7 +488,7 @@ int base64_decoded_len(xmpp_ctx_t *ctx,
 			c = _base64_invcharmap[(int)buffer[len-3]];
 			if (c < 64)
 				nudge = 2;
-		} 
+		}
 	}
 	if (nudge < 0)
 		return 0; /* reject bad coding */

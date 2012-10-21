@@ -1,7 +1,7 @@
 /* sock.c
 ** strophe XMPP client library -- socket abstraction implementation
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -83,7 +83,7 @@ sock_t sock_connect(const char * const host, const unsigned int port)
     char service[6];
     struct addrinfo *res, *ainfo, hints;
     int err;
-    
+
     sock = -1;
 
     snprintf(service, 6, "%u", port);
@@ -98,7 +98,7 @@ sock_t sock_connect(const char * const host, const unsigned int port)
 
     ainfo = res;
     while (ainfo) {
-	if ((sock = socket(ainfo->ai_family, ainfo->ai_socktype, 
+	if ((sock = socket(ainfo->ai_family, ainfo->ai_socktype,
 		   ainfo->ai_protocol)) >= 0) {
 	    sock_set_nonblocking(sock);
 
@@ -158,7 +158,7 @@ int sock_write(const sock_t sock, const void * const buff, const size_t len)
 int sock_is_recoverable(const int error)
 {
 #ifdef _WIN32
-    return (error == WSAEINTR || error == WSAEWOULDBLOCK || 
+    return (error == WSAEINTR || error == WSAEWOULDBLOCK ||
 	    error == WSAEINPROGRESS);
 #else
     return (error == EAGAIN || error == EINTR);
@@ -293,7 +293,7 @@ void netbuf_get_16bitnum(unsigned char *buf, int buflen, int *offset, unsigned s
 	*offset += 2;
 }
 
-void netbuf_add_domain_name(unsigned char *buf, int buflen, int *offset, 
+void netbuf_add_domain_name(unsigned char *buf, int buflen, int *offset,
 			    char *name)
 {
 	unsigned char *start = buf + *offset;
@@ -301,7 +301,7 @@ void netbuf_add_domain_name(unsigned char *buf, int buflen, int *offset,
 	unsigned char *wordstart, *wordend;
 
 	wordstart = (unsigned char *)name;
-	
+
 	while (*wordstart)
 	{
 		int len;
@@ -427,7 +427,7 @@ int netbuf_get_domain_name(unsigned char *buf, int buflen, int *offset, char *na
 			}
 
 			partlen = *p++;
-			
+
 			for (i=0; i < partlen; i++)
 			{
                                 *p2++ = *p++;
@@ -452,7 +452,7 @@ void netbuf_add_dnsquery_header(unsigned char *buf, int buflen, int *offset, str
 	unsigned char *p;
 
 	netbuf_add_16bitnum(buf, buflen, offset, header->id);
-	
+
 	p = buf + *offset;
 	*p++ =    ((header->qr     & 0x01) << 7)
 		| ((header->opcode & 0x0F) << 3)
@@ -473,7 +473,7 @@ void netbuf_add_dnsquery_header(unsigned char *buf, int buflen, int *offset, str
 void netbuf_get_dnsquery_header(unsigned char *buf, int buflen, int *offset, struct dnsquery_header *header)
 {
 	unsigned char *p;
-		
+
 	netbuf_get_16bitnum(buf, buflen, offset, &(header->id));
 
 	p = buf + *offset;
@@ -545,7 +545,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
     if (!set)
     {
         HINSTANCE hdnsapi = NULL;
-	
+
 	DNS_STATUS (WINAPI * pDnsQuery_A)(PCSTR, WORD, DWORD, PIP4_ARRAY, PDNS_RECORD*, PVOID*);
 	void (WINAPI * pDnsRecordListFree)(PDNS_RECORD, DNS_FREE_TYPE);
 
@@ -578,7 +578,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
 
 		pDnsRecordListFree(dnsrecords, DnsFreeRecordList);
 	    }
-	    
+
 	    FreeLibrary(hdnsapi);
 	}
     }
@@ -656,7 +656,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
 			{
 				error = RegQueryValueEx(search, "DhcpNameServer", NULL, NULL, (LPBYTE)name, &len);
 			}
-		
+
 			if (error == ERROR_SUCCESS)
 			{
 				char *parse = "0123456789.", *start, *end;
@@ -868,24 +868,24 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
     if (!set) {
         unsigned char buf[65535];
 	int len;
-	
+
 	if ((len = res_query(fulldomain, C_IN, T_SRV, buf, 65535)) > 0) {
 	    int offset;
 	    int i;
 	    struct dnsquery_header header;
 	    struct dnsquery_question question;
 	    struct dnsquery_resourcerecord rr;
-	    
+
 	    offset = 0;
 	    netbuf_get_dnsquery_header(buf, 65536, &offset, &header);
-	   
+
 	    for (i = 0; i < header.qdcount; i++) {
 		netbuf_get_dnsquery_question(buf, 65536, &offset, &question);
 	    }
 
 	    for (i = 0; i < header.ancount; i++) {
 		netbuf_get_dnsquery_resourcerecord(buf, 65536, &offset, &rr);
-		
+
 		if (rr.type == 33) {
 		    struct dnsquery_srvrdata *srvrdata = &(rr.rdata);
 
@@ -898,7 +898,7 @@ int sock_srv_lookup(const char *service, const char *proto, const char *domain, 
 
 	    for (i = 0; i < header.ancount; i++) {
 		netbuf_get_dnsquery_resourcerecord(buf, 65536, &offset, &rr);
-	    }	    
+	    }
 	}
     }
 #endif

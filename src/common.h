@@ -197,7 +197,7 @@ struct _xmpp_conn_t {
 
 	/* user handlers only get called after authentication */
 	int authenticated;
-    
+
 	/* connection events handler */
 	xmpp_conn_handler conn_handler;
 	void *userdata;
@@ -226,7 +226,7 @@ struct _xmpp_stanza_t {
 	xmpp_ctx_t *ctx;
 
 	xmpp_stanza_type_t type;
-    
+
 	xmpp_stanza_t *prev;
 	xmpp_stanza_t *next;
 	xmpp_stanza_t *children;

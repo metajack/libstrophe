@@ -1,7 +1,7 @@
 /* handler.c
 ** strophe XMPP client library -- event handler management
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -45,7 +45,7 @@ void handler_fire_stanza(xmpp_conn_t * const conn,
 {
     xmpp_handlist_t *item, *prev;
     char *id, *ns, *name, *type;
-    
+
     /* call id handlers */
     id = xmpp_stanza_get_id(stanza);
     if (id) {
@@ -76,12 +76,12 @@ void handler_fire_stanza(xmpp_conn_t * const conn,
 	    item = next;
 	}
     }
-    
+
     /* call handlers */
     ns = xmpp_stanza_get_ns(stanza);
     name = xmpp_stanza_get_name(stanza);
     type = xmpp_stanza_get_type(stanza);
-    
+
     /* enable all added handlers */
     for (item = conn->handlers; item; item = item->next)
 	item->enabled = 1;
@@ -119,7 +119,7 @@ void handler_fire_stanza(xmpp_conn_t * const conn,
 		xmpp_free(conn->ctx, item);
 		item = NULL;
 	    }
-	
+
 	if (item) {
 	    prev = item;
 	    item = item->next;
@@ -213,7 +213,7 @@ void handler_reset_timed(xmpp_conn_t *conn, int user_only)
     while (handitem) {
 	if ((user_only && handitem->user_handler) || !user_only)
 	    handitem->last_stamp = time_stamp();
-	
+
 	handitem = handitem->next;
     }
 }
@@ -221,7 +221,7 @@ void handler_reset_timed(xmpp_conn_t *conn, int user_only)
 static void _timed_handler_add(xmpp_conn_t * const conn,
 			       xmpp_timed_handler handler,
 			       const unsigned long period,
-			       void * const userdata, 
+			       void * const userdata,
 			       const int user_handler)
 {
     xmpp_handlist_t *item, *tail;
@@ -251,7 +251,7 @@ static void _timed_handler_add(xmpp_conn_t * const conn,
 	conn->timed_handlers = item;
     else {
 	tail = conn->timed_handlers;
-	while (tail->next) 
+	while (tail->next)
 	    tail = tail->next;
 	tail->next = item;
     }
@@ -285,7 +285,7 @@ void xmpp_timed_handler_delete(xmpp_conn_t * const conn,
 	    prev->next = item->next;
 	else
 	    conn->timed_handlers = item->next;
-	
+
 	xmpp_free(conn->ctx, item);
     }
 }
@@ -327,7 +327,7 @@ static void _id_handler_add(xmpp_conn_t * const conn,
     if (!tail)
 	hash_add(conn->id_handlers, id, item);
     else {
-	while (tail->next) 
+	while (tail->next)
 	    tail = tail->next;
 	tail->next = item;
     }
@@ -397,7 +397,7 @@ static void _handler_add(xmpp_conn_t * const conn,
     item->userdata = userdata;
     item->enabled = 0;
     item->next = NULL;
-    
+
     if (ns) {
 	item->ns = xmpp_strdup(conn->ctx, ns);
 	if (!item->ns) {
@@ -430,7 +430,7 @@ static void _handler_add(xmpp_conn_t * const conn,
 	conn->handlers = item;
     else {
 	tail = conn->handlers;
-	while (tail->next) 
+	while (tail->next)
 	    tail = tail->next;
 	tail->next = item;
     }
@@ -455,7 +455,7 @@ void xmpp_handler_delete(xmpp_conn_t * const conn,
     while (item) {
 	if (item->handler == (void *)handler)
 	    break;
-	
+
 	prev = item;
 	item = item->next;
     }
@@ -478,7 +478,7 @@ void xmpp_handler_delete(xmpp_conn_t * const conn,
  *  and continue firing regularly after that.  Strophe will try its best
  *  to fire handlers as close to the period times as it can, but accuracy
  *  will vary depending on the resolution of the event loop.
- *   
+ *
  *  If the handler function returns true, it will be kept, and if it
  *  returns false, it will be deleted from the list of handlers.
  *

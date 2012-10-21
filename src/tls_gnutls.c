@@ -1,7 +1,7 @@
 /* tls.c
 ** strophe XMPP client library -- TLS abstraction header
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -62,7 +62,7 @@ tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
 	gnutls_certificate_type_set_priority(tls->session, cert_type_priority);
 
 	/* fixme: this may require setting a callback on win32? */
-	gnutls_transport_set_ptr(tls->session, 
+	gnutls_transport_set_ptr(tls->session,
 		(gnutls_transport_ptr_t)sock);
     }
 
@@ -85,7 +85,7 @@ int tls_set_credentials(tls_t *tls, const char *cafilename)
 	    cafilename, GNUTLS_X509_FMT_PEM);
     if (err < 0) return err;
 
-    err = gnutls_credentials_set(tls->session, GNUTLS_CRD_CERTIFICATE, 
+    err = gnutls_credentials_set(tls->session, GNUTLS_CRD_CERTIFICATE,
 	    tls->cred);
 
     return err;

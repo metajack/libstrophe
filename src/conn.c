@@ -658,7 +658,7 @@ void xmpp_send(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza)
  */
 void conn_open_stream(xmpp_conn_t * const conn)
 {
-	xmpp_send_raw_string(conn, 
+	xmpp_send_raw_string(conn,
 			     "<?xml version=\"1.0\"?>"	\
 			     "<stream:stream to=\"%s\" "\
 			     "xml:lang=\"%s\" "		\
