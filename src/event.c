@@ -210,7 +210,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	sock_t max = 0;
 	int ret;
 	struct timeval tv;
-	char buf[4096];
+	char buf[XMPP_RCV_BUF];
 	uint64_t next;
 	long usec;
 	int tls_read_bytes = 0;
@@ -323,9 +323,9 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		case XMPP_STATE_CONNECTED:
 			if (FD_ISSET(conn->sock, &rfds) || (conn->tls && tls_pending(conn->tls))) {
 				if (conn->tls)
-					ret = tls_read(conn->tls, buf, 4096);
+					ret = tls_read(conn->tls, buf, XMPP_RCV_BUF);
 				else
-					ret = sock_read(conn->sock, buf, 4096);
+					ret = sock_read(conn->sock, buf, XMPP_RCV_BUF);
 
 				if (ret > 0) {
 					ret = parser_feed(conn->parser, buf, ret);
