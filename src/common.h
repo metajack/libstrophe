@@ -35,6 +35,11 @@
 #include "thread.h"
 #include "list.h"
 
+/** @def XMPP_RCV_BUF
+ *  Receive buffer size
+ */
+#define XMPP_RCV_BUF 4096
+
 /** run-time context **/
 
 typedef enum {
