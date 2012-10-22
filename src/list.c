@@ -208,7 +208,7 @@ list_t *list_pop_next(list_head_t * const list, list_t * const item)
 	if (next)
 		item->next = next->next;
 	if (!item->next)
-		list->last = item;
+		list->tail = item;
 	mutex_unlock(list->mutex);
 
 	return next;
