@@ -189,8 +189,29 @@ list_t *list_pop_by_data(list_head_t * const list, const void * const data)
 	return cur;
 }
 
-list_t *list_pop(list_head_t * const list)
+/** Get next element and remove it from the list
+ *
+ *  @param list a list object
+ *  @param item a list item object
+ *
+ *  @return pointer to the next element
+ */
+list_t *list_pop_next(list_head_t * const list, list_t * const item)
 {
+	list_t *next;
+
+	if (!item)
+		return NULL;
+
+	mutex_lock(list->mutex);
+	next = item->next;
+	if (next)
+		item->next = next->next;
+	if (!item->next)
+		list->last = item;
+	mutex_unlock(list->mutex);
+
+	return next;
 }
 
 /** Insert the element to the head of the list
@@ -211,10 +232,6 @@ void list_insert(list_head_t * const list, list_t * const item)
 	mutex_unlock(list->mutex);
 }
 
-void list_insert_after(list_head_t * const list, list_t * const item, list_t * const after)
-{
-}
-
 /** Append the element to the end of the list
  *
  *  @param list a list object
@@ -232,8 +249,4 @@ void list_push(list_head_t * const list, list_t * const item)
 		list->tail->next = item;
 	list->tail = item;
 	mutex_unlock(list->mutex);
-}
-
-void list_update(list_head_t * const list, list_t * const item, const void * const data)
-{
 }

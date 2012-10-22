@@ -45,11 +45,9 @@ list_t *list_get_next(const list_head_t * const list, const list_t * const item)
 list_t *list_get_last(const list_head_t * const list);
 list_t *list_shift(list_head_t * const list);
 list_t *list_pop_by_data(list_head_t * const list, const void * const data);
-list_t *list_pop(list_head_t * const list);
+list_t *list_pop_next(list_head_t * const list, list_t * const item);
 void list_insert(list_head_t * const list, list_t * const item);
-void list_insert_after(list_head_t * const list, list_t * const item, list_t * const after);
 void list_push(list_head_t * const list, list_t * const item);
-void list_update(list_head_t * const list, list_t * const item, const void * const data);
 
 static inline void list_lock_mutex(const list_head_t * const list)
 {
