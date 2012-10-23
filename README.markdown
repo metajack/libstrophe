@@ -27,6 +27,7 @@ libcouplet requires:
 
 - expat or libxml2 - expat is the default; use --with-libxml2 to
   switch
+- openssl
 - libresolv on UNIX systems - make sure you include -lresolv
   if you are compiling by hand.
 
