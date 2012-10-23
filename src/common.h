@@ -115,16 +115,12 @@ struct _xmpp_send_queue_t {
 	size_t written;
 };
 
-typedef struct _xmpp_handlist_t xmpp_handlist_t;
-struct _xmpp_handlist_t {
+typedef struct _xmpp_handler_t xmpp_handler_t;
+struct _xmpp_handler_t {
 	/* common members */
 	int user_handler;
 	void *handler;
 	void *userdata;
-	int enabled; /* handlers are added disabled and enabled after the
-		      * handler chain is processed to prevent stanzas from
-		      * getting processed by newly added handlers */
-	xmpp_handlist_t *next;
 
 	union {
 		/* timed handlers */
@@ -143,6 +139,22 @@ struct _xmpp_handlist_t {
 			char *type;
 		};
 	};
+};
+
+/** @TODO This is still used by id_handlers
+ *  It should be removed after rewriting id handlers with generic lists
+ */
+typedef struct _xmpp_handlist_t xmpp_handlist_t;
+struct _xmpp_handlist_t {
+	/* common members */
+	int user_handler;
+	void *handler;
+	void *userdata;
+
+	int enabled;
+	xmpp_handlist_t *next;
+
+	char *id;
 };
 
 #define SASL_MASK_PLAIN		0x01
@@ -208,9 +220,9 @@ struct _xmpp_conn_t {
 	void *userdata;
 
 	/* other handlers */
-	xmpp_handlist_t *timed_handlers;
+	list_head_t *timed_handlers;
 	hash_t *id_handlers;
-	xmpp_handlist_t *handlers;
+	list_head_t *handlers;
 };
 
 void conn_disconnect(xmpp_conn_t * const conn);

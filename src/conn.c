@@ -131,10 +131,14 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	conn->authenticated = 0;
 	conn->conn_handler = NULL;
 	conn->userdata = NULL;
-	conn->timed_handlers = NULL;
 	/* we own (and will free) the hash values */
 	conn->id_handlers = hash_new(ctx, 32, NULL);
-	conn->handlers = NULL;
+	conn->timed_handlers = list_init(ctx);
+	if (!conn->timed_handlers)
+		goto out_free_parser;
+	conn->handlers = list_init(ctx);
+	if (!conn->handlers)
+		goto out_free_timed_handlers;
 
 	/* give the caller a reference to connection */
 	conn->ref = 1;
@@ -142,7 +146,7 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	/* add connection to ctx->connlist */
 	item = list_init_item(ctx);
 	if (!item)
-		goto out_free_parser;
+		goto out_free_handlers;
 	else {
 		item->data = (void *)conn;
 		list_push(ctx->connlist, item);
@@ -150,6 +154,10 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 
 	return conn;
 
+out_free_handlers:
+	list_destroy(conn->handlers);
+out_free_timed_handlers:
+	list_destroy(conn->timed_handlers);
 out_free_parser:
 	parser_free(conn->parser);
 out_free_lang:
@@ -190,6 +198,7 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 {
 	xmpp_ctx_t *ctx;
 	list_t *item;
+	xmpp_handler_t *temp;
 	xmpp_handlist_t *hlitem, *thli;
 	hash_iterator_t *iter;
 	const char *key;
@@ -213,12 +222,11 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 	 * and the handler pointers don't need to be freed since they
 	 * are pointers to functions */
 
-	hlitem = conn->timed_handlers;
-	while (hlitem) {
-		thli = hlitem;
-		hlitem = hlitem->next;
-		xmpp_free(ctx, thli);
+	while ((item = list_shift(conn->timed_handlers))) {
+		xmpp_free(ctx, item->data);
+		xmpp_free(ctx, item);
 	}
+	list_destroy(conn->timed_handlers);
 
 	/* id handlers
 	 * we have to traverse the hash table freeing list elements
@@ -236,19 +244,19 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 	hash_iter_release(iter);
 	hash_release(conn->id_handlers);
 
-	hlitem = conn->handlers;
-	while (hlitem) {
-		thli = hlitem;
-		hlitem = hlitem->next;
+	while ((item = list_shift(conn->handlers))) {
+		temp = (xmpp_handler_t *)item->data;
 
-		if (thli->ns)
-			xmpp_free(ctx, thli->ns);
-		if (thli->name)
-			xmpp_free(ctx, thli->name);
-		if (thli->type)
-			xmpp_free(ctx, thli->type);
-		xmpp_free(ctx, thli);
+		if (temp->ns)
+			xmpp_free(ctx, temp->ns);
+		if (temp->name)
+			xmpp_free(ctx, temp->name);
+		if (temp->type)
+			xmpp_free(ctx, temp->type);
+		xmpp_free(ctx, temp);
+		xmpp_free(ctx, item);
 	}
+	list_destroy(conn->handlers);
 
 	if (conn->stream_error) {
 		xmpp_stanza_release(conn->stream_error->stanza);
