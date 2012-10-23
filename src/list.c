@@ -224,6 +224,7 @@ void list_insert(list_head_t * const list, list_t * const item)
 	if (!item)
 		return;
 
+	item->next = NULL;
 	mutex_lock(list->mutex);
 	item->next = list->head;
 	list->head = item;
@@ -242,6 +243,7 @@ void list_push(list_head_t * const list, list_t * const item)
 	if (!item)
 		return;
 
+	item->next = NULL;
 	mutex_lock(list->mutex);
 	if (!list->tail)
 		list->head = item;
