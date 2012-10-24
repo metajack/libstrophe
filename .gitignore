@@ -30,6 +30,8 @@ tests/check_parser
 *.swp
 docs/html
 TAGS
+tags
+cscope.out
 examples/basic
 examples/active
 examples/roster
