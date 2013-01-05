@@ -357,6 +357,11 @@ int tls_start(tls_t *tls)
 
     if (ret != SEC_E_OK) {
 	tls->lasterror = ret;
+	if (name)
+        {
+            xmpp_free(tls->ctx,name);
+            name=0;
+        }
 	return 0;
     }
 
@@ -377,8 +382,12 @@ int tls_start(tls_t *tls)
     tls->readybuffer      = xmpp_alloc(tls->ctx, tls->spcss.cbMaximumMessage);
     tls->readybufferpos   = 0;
     tls->readybufferlen   = 0;
-
-    return 1;
+    tls->readybufferlen   = 0;
+    if (name)
+    {
+        xmpp_free(tls->ctx,name);
+        name=0;
+    }
 }
 
 int tls_stop(tls_t *tls)
