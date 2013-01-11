@@ -554,6 +554,7 @@ static void _auth(xmpp_conn_t * const conn)
 	    disconnect_mem_error(conn);
 	    return;
 	}
+	xmpp_free(conn->ctx, authid);
 	xmpp_stanza_set_text(authdata, str);
 	xmpp_free(conn->ctx, str);
 

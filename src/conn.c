@@ -190,6 +190,8 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
     xmpp_connlist_t *item, *prev;
     xmpp_handlist_t *hlitem, *thli;
     hash_iterator_t *iter;
+    xmpp_send_queue_t *sq;
+    xmpp_send_queue_t *tsq;
     const char *key;
     int released = 0;
 
@@ -267,13 +269,28 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 	}
 
         parser_free(conn->parser);
-	
+
 	if (conn->domain) xmpp_free(ctx, conn->domain);
 	if (conn->jid) xmpp_free(ctx, conn->jid);
-    if (conn->bound_jid) xmpp_free(ctx, conn->bound_jid);
+	if (conn->bound_jid) xmpp_free(ctx, conn->bound_jid);
 	if (conn->pass) xmpp_free(ctx, conn->pass);
 	if (conn->stream_id) xmpp_free(ctx, conn->stream_id);
 	if (conn->lang) xmpp_free(ctx, conn->lang);
+
+	sq = conn->send_queue_head;
+	while (sq != NULL) {
+	    if (sq->data) {
+		xmpp_free(ctx, sq->data);
+	    }
+	    tsq = sq->next;
+	    xmpp_free(ctx, sq);
+	    sq = tsq;
+	}
+
+	if (conn->tls) {
+	    tls_free(conn->tls);
+	}
+
 	xmpp_free(ctx, conn);
 	released = 1;
     }
