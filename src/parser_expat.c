@@ -1,7 +1,7 @@
 /* parser.c
 ** strophe XMPP client library -- xml parser handlers and utility functions
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -22,7 +22,7 @@
 
 #include <expat.h>
 
-#include <strophe.h>
+#include "couplet.h"
 #include "common.h"
 #include "parser.h"
 
@@ -58,7 +58,7 @@ static void _start_element(void *userdata,
     if (parser->depth == 0) {
         /* notify the owner */
         if (parser->startcb)
-            parser->startcb((char *)name, (char **)attrs, 
+            parser->startcb((char *)name, (char **)attrs,
                             parser->userdata);
     } else {
 	/* build stanzas at depth 1 */
@@ -85,7 +85,7 @@ static void _start_element(void *userdata,
 
 	    /* add child to parent */
 	    xmpp_stanza_add_child(parser->stanza, child);
-	    
+
 	    /* the child is owned by the toplevel stanza now */
 	    xmpp_stanza_release(child);
 
@@ -180,7 +180,7 @@ int parser_reset(parser_t *parser)
     if (parser->expat)
 	XML_ParserFree(parser->expat);
 
-    if (parser->stanza) 
+    if (parser->stanza)
 	xmpp_stanza_release(parser->stanza);
 
     parser->expat = XML_ParserCreate(NULL);

@@ -1,7 +1,7 @@
 /* tls_schannel.c
 ** strophe XMPP client library -- TLS abstraction schannel impl.
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -102,7 +102,7 @@ tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock)
 	return NULL;
     }
 
-    if (!(pInitSecurityInterface = 
+    if (!(pInitSecurityInterface =
 	  (void *)GetProcAddress(tls->hsec32, "InitSecurityInterfaceA"))) {
 	tls_free(tls);
 	return NULL;
@@ -196,7 +196,7 @@ void tls_free(tls_t *tls)
 	FreeLibrary(tls->hsec32);
 	tls->hsec32 = NULL;
     }
-    
+
     xmpp_free(tls->ctx, tls);
     return;
 }
@@ -218,16 +218,16 @@ int tls_start(tls_t *tls)
     /* search the ctx's conns for our sock, and use the domain there as our
      * name */
     {
-	xmpp_connlist_t *listentry = tls->ctx->connlist;
+	list_t *listentry = list_get_first(tls->ctx->connlist);
 
 	while (listentry) {
-	    xmpp_conn_t *conn = listentry->conn;
+	    xmpp_conn_t *conn = (xmpp_conn_t *)listentry->data;
 
 	    if (conn->sock == tls->sock) {
 		name = strdup(conn->domain);
 		listentry = NULL;
 	    } else {
-		listentry = listentry->next;
+		listentry = list_get_next(tls->ctx->connlist, listentry);
 	    }
 	}
     }
@@ -297,7 +297,7 @@ int tls_start(tls_t *tls)
 
 	    FD_ZERO(&fds);
 	    FD_SET(tls->sock, &fds);
-    
+
 	    select(tls->sock, &fds, NULL, NULL, &tv);
 	}
 
@@ -310,7 +310,7 @@ int tls_start(tls_t *tls)
 
 	    FD_ZERO(&fds);
 	    FD_SET(tls->sock, &fds);
-    
+
 	    select(tls->sock, &fds, NULL, NULL, &tv);
 
 	    inbytes = sock_read(tls->sock, p, tls->spi->cbMaxToken - len);
@@ -360,7 +360,7 @@ int tls_start(tls_t *tls)
 	return 0;
     }
 
-    tls->sft->QueryContextAttributes(&(tls->hctxt), SECPKG_ATTR_STREAM_SIZES, 
+    tls->sft->QueryContextAttributes(&(tls->hctxt), SECPKG_ATTR_STREAM_SIZES,
 				&(tls->spcss));
 
     tls->recvbuffermaxlen = tls->spcss.cbHeader + tls->spcss.cbMaximumMessage
@@ -401,7 +401,7 @@ int tls_is_recoverable(int error)
 int tls_pending(tls_t *tls) {
 	// There are 3 cases:
 	// - there is data in ready buffer, so it is by default pending
-	// - there is data in recv buffer. If it is not decrypted yet, means it 
+	// - there is data in recv buffer. If it is not decrypted yet, means it
 	// was incomplete. This should be processed again only if there is data
 	// on the physical connection
 	// - there is data on the physical connection. This case is treated
@@ -494,7 +494,7 @@ int tls_read(tls_t *tls, void * const buff, const size_t len)
 	ret = tls->sft->DecryptMessage(&(tls->hctxt), &sbddec, 0, NULL);
 
 	if (ret == SEC_E_OK) {
-	    memcpy(tls->readybuffer, sbdec[1].pvBuffer, sbdec[1].cbBuffer); 
+	    memcpy(tls->readybuffer, sbdec[1].pvBuffer, sbdec[1].cbBuffer);
 	    tls->readybufferpos = 0;
 	    tls->readybufferlen = sbdec[1].cbBuffer;
 	    /* have we got some data left over?  If so, copy it to the start
@@ -626,8 +626,8 @@ int tls_write(tls_t *tls, const void * const buff, const size_t len)
 
 	if (ret == -1 && !tls_is_recoverable(tls_error(tls))) {
 	    return -1;
-	} 
-	
+	}
+
 	if (remain > tls->spcss.cbMaximumMessage) {
 	    sent += tls->spcss.cbMaximumMessage;
 	    remain -= tls->spcss.cbMaximumMessage;

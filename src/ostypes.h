@@ -1,8 +1,8 @@
 /* ostypes.h
-** strophe XMPP client library -- type definitions for platforms 
+** strophe XMPP client library -- type definitions for platforms
 **     without stdint.h
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -21,7 +21,7 @@
 #define __LIBSTROPHE_OSTYPES_H__
 
 #ifdef _WIN32
-typedef unsigned __int64 uint64_t; 
+typedef unsigned __int64 uint64_t;
 #endif
 
 #endif /* __LIBSTROPHE_OSTYPES_H__ */

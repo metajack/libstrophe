@@ -1,7 +1,7 @@
 /* conn.c
 ** strophe XMPP client library -- connection object functions
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -12,7 +12,7 @@
 **  distribution.
 */
 
-/** @file 
+/** @file
  *  Connection management.
  */
 
@@ -23,11 +23,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <strophe.h>
+#include "couplet.h"
 
 #include "common.h"
 #include "util.h"
 #include "parser.h"
+#include "thread.h"
+#include "list.h"
 
 #ifndef DEFAULT_SEND_QUEUE_MAX
 /** @def DEFAULT_SEND_QUEUE_MAX
@@ -36,7 +38,7 @@
 #define DEFAULT_SEND_QUEUE_MAX 64
 #endif
 #ifndef DISCONNECT_TIMEOUT
-/** @def DISCONNECT_TIMEOUT 
+/** @def DISCONNECT_TIMEOUT
  *  The time to wait (in milliseconds) for graceful disconnection to
  *  complete before the connection is reset.  The default is 2 seconds.
  */
@@ -44,21 +46,18 @@
 #endif
 #ifndef CONNECT_TIMEOUT
 /** @def CONNECT_TIMEOUT
- *  The time to wait (in milliseconds) for a connection attempt to succeed 
+ *  The time to wait (in milliseconds) for a connection attempt to succeed
  * or error.  The default is 5 seconds.
  */
 #define CONNECT_TIMEOUT 5000 /* 5 seconds */
 #endif
 
-static int _disconnect_cleanup(xmpp_conn_t * const conn, 
-			       void * const userdata);
+static int _disconnect_cleanup(xmpp_conn_t * const conn, void * const userdata);
 
-static void _handle_stream_start(char *name, char **attrs, 
-                                 void * const userdata);
-static void _handle_stream_end(char *name,
-                               void * const userdata);
-static void _handle_stream_stanza(xmpp_stanza_t *stanza,
-                                  void * const userdata);
+static void _handle_stream_start(char *name, char **attrs,
+				 void * const userdata);
+static void _handle_stream_end(char *name, void * const userdata);
+static void _handle_stream_stanza(xmpp_stanza_t *stanza, void * const userdata);
 
 /** Create a new Strophe connection object.
  *
@@ -70,17 +69,20 @@ static void _handle_stream_stanza(xmpp_stanza_t *stanza,
  */
 xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 {
-    xmpp_conn_t *conn = NULL;
-    xmpp_connlist_t *tail, *item;
+	xmpp_conn_t *conn;
+	list_t *item;
 
-    if (ctx == NULL) return NULL;
+	if (!ctx)
+		return NULL;
 	conn = xmpp_alloc(ctx, sizeof(xmpp_conn_t));
-    
-    if (conn != NULL) {
+
+	if (!conn)
+		return NULL;
+
 	conn->ctx = ctx;
 
 	conn->type = XMPP_UNKNOWN;
-        conn->state = XMPP_STATE_DISCONNECTED;
+	conn->state = XMPP_STATE_DISCONNECTED;
 	conn->sock = -1;
 	conn->tls = NULL;
 	conn->timeout_stamp = 0;
@@ -90,77 +92,85 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 	/* default send parameters */
 	conn->blocking_send = 0;
 	conn->send_queue_max = DEFAULT_SEND_QUEUE_MAX;
-	conn->send_queue_len = 0;
-	conn->send_queue_head = NULL;
-	conn->send_queue_tail = NULL;
+	conn->send_queue = list_init(ctx);
+	if (!conn->send_queue)
+		goto out_free_conn;
 
 	/* default timeouts */
 	conn->connect_timeout = CONNECT_TIMEOUT;
 
-	conn->lang = xmpp_strdup(conn->ctx, "en");
-	if (!conn->lang) {
-	    xmpp_free(conn->ctx, conn);
-	    return NULL;
-	}
+	conn->lang = xmpp_strdup(ctx, "en");
+	if (!conn->lang)
+		goto out_free_send_queue;
+
 	conn->domain = NULL;
 	conn->jid = NULL;
 	conn->pass = NULL;
 	conn->stream_id = NULL;
-        conn->bound_jid = NULL;
+	conn->bound_jid = NULL;
 
 	conn->tls_support = 0;
 	conn->tls_disabled = 0;
 	conn->tls_failed = 0;
 	conn->sasl_support = 0;
-        conn->secured = 0;
+	conn->secured = 0;
 
 	conn->bind_required = 0;
 	conn->session_required = 0;
 
-	conn->parser = parser_new(conn->ctx, 
-                                  _handle_stream_start,
-                                  _handle_stream_end,
-                                  _handle_stream_stanza,
-                                  conn);
-        conn->reset_parser = 0;
-        conn_prepare_reset(conn, auth_handle_open);
+	conn->parser = parser_new(ctx,
+				  _handle_stream_start,
+				  _handle_stream_end,
+				  _handle_stream_stanza,
+				  conn);
+	if (!conn->parser)
+		goto out_free_lang;
+	conn->reset_parser = 0;
+	conn_prepare_reset(conn, auth_handle_open);
 
 	conn->authenticated = 0;
 	conn->conn_handler = NULL;
 	conn->userdata = NULL;
-	conn->timed_handlers = NULL;
 	/* we own (and will free) the hash values */
-	conn->id_handlers = hash_new(conn->ctx, 32, NULL);
-	conn->handlers = NULL;
+	conn->id_handlers = hash_new(ctx, 32, NULL);
+	conn->timed_handlers = list_init(ctx);
+	if (!conn->timed_handlers)
+		goto out_free_parser;
+	conn->handlers = list_init(ctx);
+	if (!conn->handlers)
+		goto out_free_timed_handlers;
 
 	/* give the caller a reference to connection */
 	conn->ref = 1;
 
 	/* add connection to ctx->connlist */
-	tail = conn->ctx->connlist;
-	while (tail && tail->next) tail = tail->next;
-
-	item = xmpp_alloc(conn->ctx, sizeof(xmpp_connlist_t));
-	if (!item) {
-	    xmpp_error(conn->ctx, "xmpp", "failed to allocate memory");
-	    xmpp_free(conn->ctx, conn->lang);
-            parser_free(conn->parser);
-	    xmpp_free(conn->ctx, conn);
-	    conn = NULL;
-	} else {
-	    item->conn = conn;
-	    item->next = NULL;
-
-	    if (tail) tail->next = item;
-	    else conn->ctx->connlist = item;
+	item = list_init_item(ctx);
+	if (!item)
+		goto out_free_handlers;
+	else {
+		item->data = (void *)conn;
+		list_push(ctx->connlist, item);
 	}
-    }
-    
-    return conn;
+
+	return conn;
+
+out_free_handlers:
+	list_destroy(conn->handlers);
+out_free_timed_handlers:
+	list_destroy(conn->timed_handlers);
+out_free_parser:
+	parser_free(conn->parser);
+out_free_lang:
+	xmpp_free(ctx, conn->lang);
+out_free_send_queue:
+	list_destroy(conn->send_queue);
+out_free_conn:
+	xmpp_free(ctx, conn);
+	return NULL;
 }
 
 /** Clone a Strophe connection object.
- *  
+ *
  *  @param conn a Strophe connection object
  *
  *  @return the same conn object passed in with its reference count
@@ -170,12 +180,12 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
  */
 xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t * const conn)
 {
-    conn->ref++;
-    return conn;
+	conn->ref++;
+	return conn;
 }
 
 /** Release a Strophe connection object.
- *  Decrement the reference count by one for a connection, freeing the 
+ *  Decrement the reference count by one for a connection, freeing the
  *  connection object if the count reaches 0.
  *
  *  @param conn a Strophe connection object
@@ -186,103 +196,99 @@ xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t * const conn)
  */
 int xmpp_conn_release(xmpp_conn_t * const conn)
 {
-    xmpp_ctx_t *ctx;
-    xmpp_connlist_t *item, *prev;
-    xmpp_handlist_t *hlitem, *thli;
-    hash_iterator_t *iter;
-    const char *key;
-    int released = 0;
+	xmpp_ctx_t *ctx;
+	list_t *item;
+	xmpp_handler_t *temp;
+	xmpp_handlist_t *hlitem, *thli;
+	hash_iterator_t *iter;
+	const char *key;
 
-    if (conn->ref > 1) 
-	conn->ref--;
-    else {
+	if (conn->ref > 1) {
+		conn->ref--;
+		return 0;
+	}
+
 	ctx = conn->ctx;
 
 	/* remove connection from context's connlist */
-	if (ctx->connlist->conn == conn) {
-	    item = ctx->connlist;
-	    ctx->connlist = item->next;
-	    xmpp_free(ctx, item);
-	} else {
-	    prev = NULL;
-	    item = ctx->connlist;
-	    while (item && item->conn != conn) {
-		prev = item;
-		item = item->next;
-	    }
-
-	    if (!item) {
-		xmpp_error(ctx, "xmpp", "Connection not in context's list\n");
-	    } else {
-		prev->next = item->next;
+	item = list_pop_by_data(ctx->connlist, (void *)conn);
+	if (item)
 		xmpp_free(ctx, item);
-	    }
-	}
+	else
+		xmpp_error(ctx, "xmpp", "Connection not in context's list\n");
 
 	/* free handler stuff
 	 * note that userdata is the responsibility of the client
 	 * and the handler pointers don't need to be freed since they
 	 * are pointers to functions */
 
-	hlitem = conn->timed_handlers;
-	while (hlitem) {
-	    thli = hlitem;
-	    hlitem = hlitem->next;
-
-	    xmpp_free(ctx, thli);
+	while ((item = list_shift(conn->timed_handlers))) {
+		xmpp_free(ctx, item->data);
+		xmpp_free(ctx, item);
 	}
+	list_destroy(conn->timed_handlers);
 
 	/* id handlers
-	 * we have to traverse the hash table freeing list elements 
+	 * we have to traverse the hash table freeing list elements
 	 * then release the hash table */
 	iter = hash_iter_new(conn->id_handlers);
 	while ((key = hash_iter_next(iter))) {
-	    hlitem = (xmpp_handlist_t *)hash_get(conn->id_handlers, key);
-	    while (hlitem) {
-		thli = hlitem;
-		hlitem = hlitem->next;
-		xmpp_free(conn->ctx, thli->id);
-		xmpp_free(conn->ctx, thli);
-	    }
+		hlitem = (xmpp_handlist_t *)hash_get(conn->id_handlers, key);
+		while (hlitem) {
+			thli = hlitem;
+			hlitem = hlitem->next;
+			xmpp_free(ctx, thli->id);
+			xmpp_free(ctx, thli);
+		}
 	}
 	hash_iter_release(iter);
 	hash_release(conn->id_handlers);
 
-	hlitem = conn->handlers;
-	while (hlitem) {
-	    thli = hlitem;
-	    hlitem = hlitem->next;
+	while ((item = list_shift(conn->handlers))) {
+		temp = (xmpp_handler_t *)item->data;
 
-	    if (thli->ns) xmpp_free(ctx, thli->ns);
-	    if (thli->name) xmpp_free(ctx, thli->name);
-	    if (thli->type) xmpp_free(ctx, thli->type);
-	    xmpp_free(ctx, thli);
+		if (temp->ns)
+			xmpp_free(ctx, temp->ns);
+		if (temp->name)
+			xmpp_free(ctx, temp->name);
+		if (temp->type)
+			xmpp_free(ctx, temp->type);
+		xmpp_free(ctx, temp);
+		xmpp_free(ctx, item);
 	}
+	list_destroy(conn->handlers);
 
 	if (conn->stream_error) {
-	    xmpp_stanza_release(conn->stream_error->stanza);
-	    if (conn->stream_error->text)
-		xmpp_free(ctx, conn->stream_error->text);
-	    xmpp_free(ctx, conn->stream_error);
+		xmpp_stanza_release(conn->stream_error->stanza);
+		if (conn->stream_error->text)
+			xmpp_free(ctx, conn->stream_error->text);
+		xmpp_free(ctx, conn->stream_error);
 	}
 
-        parser_free(conn->parser);
-	
-	if (conn->domain) xmpp_free(ctx, conn->domain);
-	if (conn->jid) xmpp_free(ctx, conn->jid);
-    if (conn->bound_jid) xmpp_free(ctx, conn->bound_jid);
-	if (conn->pass) xmpp_free(ctx, conn->pass);
-	if (conn->stream_id) xmpp_free(ctx, conn->stream_id);
-	if (conn->lang) xmpp_free(ctx, conn->lang);
-	xmpp_free(ctx, conn);
-	released = 1;
-    }
+	parser_free(conn->parser);
 
-    return released;
+	/* free send_queue */
+	list_destroy(conn->send_queue);
+
+	if (conn->domain)
+		xmpp_free(ctx, conn->domain);
+	if (conn->jid)
+		xmpp_free(ctx, conn->jid);
+	if (conn->bound_jid)
+		xmpp_free(ctx, conn->bound_jid);
+	if (conn->pass)
+		xmpp_free(ctx, conn->pass);
+	if (conn->stream_id)
+		xmpp_free(ctx, conn->stream_id);
+	if (conn->lang)
+		xmpp_free(ctx, conn->lang);
+	xmpp_free(ctx, conn);
+
+	return 1;
 }
 
 /** Get the JID which is or will be bound to the connection.
- *  
+ *
  *  @param conn a Strophe connection object
  *
  *  @return a string containing the full JID or NULL if it has not been set
@@ -291,7 +297,7 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
  */
 const char *xmpp_conn_get_jid(const xmpp_conn_t * const conn)
 {
-    return conn->jid;
+	return conn->jid;
 }
 
 /**
@@ -309,11 +315,11 @@ const char *xmpp_conn_get_jid(const xmpp_conn_t * const conn)
  */
 const char *xmpp_conn_get_bound_jid(const xmpp_conn_t * const conn)
 {
-    return conn->bound_jid;
+	return conn->bound_jid;
 }
 
 /** Set the JID of the user that will be bound to the connection.
- *  If any JID was previously set, it will be discarded.  This should not be 
+ *  If any JID was previously set, it will be discarded.  This should not be
  *  be used after a connection is created.  The function will make a copy of
  *  the JID string.  If the supllied JID is missing the node, SASL
  *  ANONYMOUS authentication will be used.
@@ -325,8 +331,9 @@ const char *xmpp_conn_get_bound_jid(const xmpp_conn_t * const conn)
  */
 void xmpp_conn_set_jid(xmpp_conn_t * const conn, const char * const jid)
 {
-    if (conn->jid) xmpp_free(conn->ctx, conn->jid);
-    conn->jid = xmpp_strdup(conn->ctx, jid);
+	if (conn->jid)
+		xmpp_free(conn->ctx, conn->jid);
+	conn->jid = xmpp_strdup(conn->ctx, jid);
 }
 
 /** Get the password used for authentication of a connection.
@@ -339,13 +346,13 @@ void xmpp_conn_set_jid(xmpp_conn_t * const conn, const char * const jid)
  */
 const char *xmpp_conn_get_pass(const xmpp_conn_t * const conn)
 {
-    return conn->pass;
+	return conn->pass;
 }
 
 /** Set the password used to authenticate the connection.
  *  If any password was previously set, it will be discarded.  The function
  *  will make a copy of the password string.
- * 
+ *
  *  @param conn a Strophe connection object
  *  @param pass the password
  *
@@ -353,15 +360,16 @@ const char *xmpp_conn_get_pass(const xmpp_conn_t * const conn)
  */
 void xmpp_conn_set_pass(xmpp_conn_t * const conn, const char * const pass)
 {
-    if (conn->pass) xmpp_free(conn->ctx, conn->pass);
-    conn->pass = xmpp_strdup(conn->ctx, pass);
+	if (conn->pass)
+		xmpp_free(conn->ctx, conn->pass);
+	conn->pass = xmpp_strdup(conn->ctx, pass);
 }
 
 /** Get the strophe context that the connection is associated with.
 *  @param conn a Strophe connection object
-* 
+*
 *  @return a Strophe context
-* 
+*
 *  @ingroup Connections
 */
 xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
@@ -374,7 +382,7 @@ xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
  *  process to the XMPP server, and notifiations of connection state changes
  *  will be sent to the callback function.  The domain and port to connect to
  *  are usually determined by an SRV lookup for the xmpp-client service at
- *  the domain specified in the JID.  If SRV lookup fails, altdomain and 
+ *  the domain specified in the JID.  If SRV lookup fails, altdomain and
  *  altport will be used instead if specified.
  *
  *  @param conn a Strophe connection object
@@ -390,56 +398,57 @@ xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-int xmpp_connect_client(xmpp_conn_t * const conn, 
+int xmpp_connect_client(xmpp_conn_t * const conn,
 			  const char * const altdomain,
 			  unsigned short altport,
 			  xmpp_conn_handler callback,
 			  void * const userdata)
 {
-    char connectdomain[2048];
-    int connectport;
-    const char * domain;
+	char connectdomain[XMPP_FQDN_MAX_LEN + 1];
+	int connectport;
 
-    conn->type = XMPP_CLIENT;
+	conn->type = XMPP_CLIENT;
 
-    conn->domain = xmpp_jid_domain(conn->ctx, conn->jid);
-    if (!conn->domain) return -1;
+	conn->domain = xmpp_jid_domain(conn->ctx, conn->jid);
+	if (!conn->domain)
+		return -1;
 
-    if (altdomain) {
-        xmpp_debug(conn->ctx, "xmpp", "Connecting via altdomain.");
-        strcpy(connectdomain, altdomain);
-        connectport = altport ? altport : 5222;
-    } else if (!sock_srv_lookup("xmpp-client", "tcp", conn->domain,
-                                connectdomain, 2048, &connectport)) {
-	    xmpp_debug(conn->ctx, "xmpp", "SRV lookup failed.");
-	    if (!altdomain)
-		    domain = conn->domain;
-	    else
-		    domain = altdomain;
-	    xmpp_debug(conn->ctx, "xmpp", "Using alternate domain %s, port %d",
-                   altdomain, altport);
-	    strcpy(connectdomain, domain);
-	    connectport = altport ? altport : 5222;
-    }
-    conn->sock = sock_connect(connectdomain, connectport);
-    xmpp_debug(conn->ctx, "xmpp", "sock_connect to %s:%d returned %d",
-               connectdomain, connectport, conn->sock);
-    if (conn->sock == -1) return -1;
+	if (altdomain) {
+		if (strlen(altdomain) > XMPP_FQDN_MAX_LEN)
+			return XMPP_EINVAL;
+		xmpp_debug(conn->ctx, "xmpp", "Connecting via altdomain.");
+		strcpy(connectdomain, altdomain);
+		connectport = altport ? altport : XMPP_CLIENT_PORT;
+	} else if (!sock_srv_lookup("xmpp-client", "tcp", conn->domain,
+				    connectdomain, XMPP_FQDN_MAX_LEN + 1, &connectport)) {
+		xmpp_debug(conn->ctx, "xmpp", "SRV lookup failed.");
+		if (strlen(conn->domain) > XMPP_FQDN_MAX_LEN)
+			return XMPP_EINVAL;
+		xmpp_debug(conn->ctx, "xmpp", "Using domain %s, port %d",
+			   altdomain, altport);
+		strcpy(connectdomain, conn->domain);
+		connectport = altport ? altport : XMPP_CLIENT_PORT;
+	}
+	conn->sock = sock_connect(connectdomain, connectport);
+	xmpp_debug(conn->ctx, "xmpp", "sock_connect to %s:%d returned %d",
+		   connectdomain, connectport, conn->sock);
+	if (conn->sock == -1)
+		return -1;
 
-    /* setup handler */
-    conn->conn_handler = callback;
-    conn->userdata = userdata;
+	/* setup handler */
+	conn->conn_handler = callback;
+	conn->userdata = userdata;
 
-    /* FIXME: it could happen that the connect returns immediately as
-     * successful, though this is pretty unlikely.  This would be a little
-     * hard to fix, since we'd have to detect and fire off the callback
-     * from within the event loop */
+	/* FIXME: it could happen that the connect returns immediately as
+	 * successful, though this is pretty unlikely.  This would be a little
+	 * hard to fix, since we'd have to detect and fire off the callback
+	 * from within the event loop */
 
-    conn->state = XMPP_STATE_CONNECTING;
-    conn->timeout_stamp = time_stamp();
-    xmpp_debug(conn->ctx, "xmpp", "attempting to connect to %s", connectdomain);
+	conn->state = XMPP_STATE_CONNECTING;
+	conn->timeout_stamp = time_stamp();
+	xmpp_debug(conn->ctx, "xmpp", "attempting to connect to %s", connectdomain);
 
-    return 0;
+	return 0;
 }
 
 /** Cleanly disconnect the connection.
@@ -450,10 +459,10 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
  */
 void conn_disconnect_clean(xmpp_conn_t * const conn)
 {
-    /* remove the timed handler */
-    xmpp_timed_handler_delete(conn, _disconnect_cleanup);
+	/* remove the timed handler */
+	xmpp_timed_handler_delete(conn, _disconnect_cleanup);
 
-    conn_disconnect(conn);
+	conn_disconnect(conn);
 }
 
 /** Disconnect from the XMPP server.
@@ -462,47 +471,45 @@ void conn_disconnect_clean(xmpp_conn_t * const conn)
  *
  *  @param conn a Strophe connection object
  */
-void conn_disconnect(xmpp_conn_t * const conn) 
+void conn_disconnect(xmpp_conn_t * const conn)
 {
-    xmpp_debug(conn->ctx, "xmpp", "Closing socket.");
-    conn->state = XMPP_STATE_DISCONNECTED;
-    if (conn->tls) {
-	tls_stop(conn->tls);
-	tls_free(conn->tls);
-	conn->tls = NULL;
-    }
-    sock_close(conn->sock);
+	xmpp_debug(conn->ctx, "xmpp", "Closing socket.");
+	conn->state = XMPP_STATE_DISCONNECTED;
+	if (conn->tls) {
+		tls_stop(conn->tls);
+		tls_free(conn->tls);
+		conn->tls = NULL;
+	}
+	sock_close(conn->sock);
 
-    /* fire off connection handler */
-    conn->conn_handler(conn, XMPP_CONN_DISCONNECT, conn->error,
-		       conn->stream_error, conn->userdata);
+	/* fire off connection handler */
+	conn->conn_handler(conn, XMPP_CONN_DISCONNECT, conn->error,
+			   conn->stream_error, conn->userdata);
 }
 
 /* prepares a parser reset.  this is called from handlers. we can't
  * reset the parser immediately as it is not re-entrant. */
 void conn_prepare_reset(xmpp_conn_t * const conn, xmpp_open_handler handler)
 {
-    conn->reset_parser = 1;
-    conn->open_handler = handler;
+	conn->reset_parser = 1;
+	conn->open_handler = handler;
 }
 
 /* reset the parser */
 void conn_parser_reset(xmpp_conn_t * const conn)
 {
-    conn->reset_parser = 0;
-    parser_reset(conn->parser);
+	conn->reset_parser = 0;
+	parser_reset(conn->parser);
 }
 
 /* timed handler for cleanup if normal disconnect procedure takes too long */
-static int _disconnect_cleanup(xmpp_conn_t * const conn, 
+static int _disconnect_cleanup(xmpp_conn_t * const conn,
 			       void * const userdata)
 {
-    xmpp_debug(conn->ctx, "xmpp",
-	       "disconnection forced by cleanup timeout");
+	xmpp_debug(conn->ctx, "xmpp", "disconnection forced by cleanup timeout");
+	conn_disconnect(conn);
 
-    conn_disconnect(conn);
-
-    return 0;
+	return 0;
 }
 
 /** Initiate termination of the connection to the XMPP server.
@@ -516,20 +523,20 @@ static int _disconnect_cleanup(xmpp_conn_t * const conn,
  */
 void xmpp_disconnect(xmpp_conn_t * const conn)
 {
-    if (conn->state != XMPP_STATE_CONNECTING &&
-	conn->state != XMPP_STATE_CONNECTED)
-	return;
+	if (conn->state != XMPP_STATE_CONNECTING &&
+	    conn->state != XMPP_STATE_CONNECTED)
+		return;
 
-    /* close the stream */
-    xmpp_send_raw_string(conn, "</stream:stream>");
+	/* close the stream */
+	xmpp_send_raw_string(conn, "</stream:stream>");
 
-    /* setup timed handler in case disconnect takes too long */
-    handler_add_timed(conn, _disconnect_cleanup,
-		      DISCONNECT_TIMEOUT, NULL);
+	/* setup timed handler in case disconnect takes too long */
+	handler_add_timed(conn, _disconnect_cleanup,
+			  DISCONNECT_TIMEOUT, NULL);
 }
 
 /** Send a raw string to the XMPP server.
- *  This function is a convenience function to send raw string data to the 
+ *  This function is a convenience function to send raw string data to the
  *  XMPP server.  It is used by Strophe to send short messages instead of
  *  building up an XML stanza with DOM methods.  This should be used with care
  *  as it does not validate the data; invalid data may result in immediate
@@ -539,47 +546,46 @@ void xmpp_disconnect(xmpp_conn_t * const conn)
  *  @param fmt a printf-style format string followed by a variable list of
  *      arguments to format
  */
-void xmpp_send_raw_string(xmpp_conn_t * const conn, 
+void xmpp_send_raw_string(xmpp_conn_t * const conn,
 			  const char * const fmt, ...)
 {
-    va_list ap;
-    size_t len;
-    char buf[1024]; /* small buffer for common case */
-    char *bigbuf;
+	va_list ap;
+	size_t len;
+	char buf[1024]; /* small buffer for common case */
+	char *bigbuf;
 
-    va_start(ap, fmt);
-    len = xmpp_vsnprintf(buf, 1024, fmt, ap);
-    va_end(ap);
-
-    if (len >= 1024) {
-	/* we need more space for this data, so we allocate a big 
-	 * enough buffer and print to that */
-	len++; /* account for trailing \0 */
-	bigbuf = xmpp_alloc(conn->ctx, len);
-	if (!bigbuf) {
-	    xmpp_debug(conn->ctx, "xmpp", "Could not allocate memory for send_raw_string");
-	    return;
-	}
 	va_start(ap, fmt);
-	xmpp_vsnprintf(bigbuf, len, fmt, ap);
+	len = xmpp_vsnprintf(buf, 1024, fmt, ap);
 	va_end(ap);
 
-	xmpp_debug(conn->ctx, "conn", "SENT: %s", bigbuf);
+	if (len >= 1024) {
+		/* we need more space for this data, so we allocate a big
+		 * enough buffer and print to that */
+		len++; /* account for trailing \0 */
+		bigbuf = xmpp_alloc(conn->ctx, len);
+		if (!bigbuf) {
+			xmpp_debug(conn->ctx, "xmpp",
+				   "Could not allocate memory for send_raw_string");
+			return;
+		}
+		va_start(ap, fmt);
+		xmpp_vsnprintf(bigbuf, len, fmt, ap);
+		va_end(ap);
 
-	/* len - 1 so we don't send trailing \0 */
-	xmpp_send_raw(conn, bigbuf, len - 1);
+		xmpp_debug(conn->ctx, "conn", "SENT: %s", bigbuf);
+		/* len - 1 so we don't send trailing \0 */
+		xmpp_send_raw(conn, bigbuf, len - 1);
 
-	xmpp_free(conn->ctx, bigbuf);
-    } else {
-	xmpp_debug(conn->ctx, "conn", "SENT: %s", buf);
-
-	xmpp_send_raw(conn, buf, len);
-    }
+		xmpp_free(conn->ctx, bigbuf);
+	} else {
+		xmpp_debug(conn->ctx, "conn", "SENT: %s", buf);
+		xmpp_send_raw(conn, buf, len);
+	}
 }
 
 /** Send raw bytes to the XMPP server.
- *  This function is a convenience function to send raw bytes to the 
- *  XMPP server.  It is usedly primarly by xmpp_send_raw_string.  This 
+ *  This function is a convenience function to send raw bytes to the
+ *  XMPP server.  It is usedly primarly by xmpp_send_raw_string.  This
  *  function should be used with care as it does not validate the bytes and
  *  invalid data may result in stream termination by the XMPP server.
  *
@@ -590,35 +596,44 @@ void xmpp_send_raw_string(xmpp_conn_t * const conn,
 void xmpp_send_raw(xmpp_conn_t * const conn,
 		   const char * const data, const size_t len)
 {
-    xmpp_send_queue_t *item;
+	xmpp_ctx_t *ctx;
+	xmpp_send_queue_t *sq;
+	list_t *item;
 
-    if (conn->state != XMPP_STATE_CONNECTED) return;
+	if (conn->state != XMPP_STATE_CONNECTED)
+		return;
 
-    /* create send queue item for queue */
-    item = xmpp_alloc(conn->ctx, sizeof(xmpp_send_queue_t));
-    if (!item) return;
+	ctx = conn->ctx;
 
-    item->data = xmpp_alloc(conn->ctx, len);
-    if (!item->data) {
-	xmpp_free(conn->ctx, item);
+	/* create send queue item for queue */
+	sq = xmpp_alloc(ctx, sizeof(xmpp_send_queue_t));
+	if (!sq)
+		return;
+
+	sq->data = xmpp_alloc(ctx, len);
+	if (!sq->data)
+		goto out_free_sq;
+
+	item = list_init_item(ctx);
+	if (!item)
+		goto out_free_data;
+
+	memcpy(sq->data, data, len);
+	sq->len = len;
+	sq->written = 0;
+	item->data = (void *)sq;
+
+	/* add item to the send queue */
+	list_push(conn->send_queue, item);
+	/* unlock send_queue_thread */
+	xmpp_sem_post(ctx->send_queue_sem);
+
 	return;
-    }
-    memcpy(item->data, data, len);
-    item->len = len;
-    item->next = NULL;
-    item->written = 0;
 
-    /* add item to the send queue */
-    if (!conn->send_queue_tail) {
-	/* first item, set head and tail */
-	conn->send_queue_head = item;
-	conn->send_queue_tail = item;
-    } else {
-	/* add to the tail */
-	conn->send_queue_tail->next = item;
-	conn->send_queue_tail = item;
-    }
-    conn->send_queue_len++;
+out_free_data:
+	xmpp_free(ctx, sq->data);
+out_free_sq:
+	xmpp_free(ctx, sq);
 }
 
 /** Send an XML stanza to the XMPP server.
@@ -630,20 +645,17 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
  *
  *  @ingroup Connections
  */
-void xmpp_send(xmpp_conn_t * const conn,
-	       xmpp_stanza_t * const stanza)
+void xmpp_send(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza)
 {
-    char *buf;
-    size_t len;
-    int ret;
+	char *buf;
+	size_t len;
 
-    if (conn->state == XMPP_STATE_CONNECTED) {
-	if ((ret = xmpp_stanza_to_text(stanza, &buf, &len)) == 0) {
-	    xmpp_send_raw(conn, buf, len);
-	    xmpp_debug(conn->ctx, "conn", "SENT: %s", buf);
-	    xmpp_free(conn->ctx, buf);
+	if (conn->state == XMPP_STATE_CONNECTED &&
+	    !xmpp_stanza_to_text(stanza, &buf, &len)) {
+			xmpp_send_raw(conn, buf, len);
+			xmpp_debug(conn->ctx, "conn", "SENT: %s", buf);
+			xmpp_free(conn->ctx, buf);
 	}
-    }
 }
 
 /** Send the opening &lt;stream:stream&gt; tag to the server.
@@ -654,17 +666,17 @@ void xmpp_send(xmpp_conn_t * const conn,
  */
 void conn_open_stream(xmpp_conn_t * const conn)
 {
-    xmpp_send_raw_string(conn, 
-			 "<?xml version=\"1.0\"?>"			\
-			 "<stream:stream to=\"%s\" "			\
-			 "xml:lang=\"%s\" "				\
-			 "version=\"1.0\" "				\
-			 "xmlns=\"%s\" "				\
-			 "xmlns:stream=\"%s\">", 
-			 conn->domain,
-			 conn->lang,
-			 conn->type == XMPP_CLIENT ? XMPP_NS_CLIENT : XMPP_NS_COMPONENT,
-			 XMPP_NS_STREAMS);
+	xmpp_send_raw_string(conn,
+			     "<?xml version=\"1.0\"?>"	\
+			     "<stream:stream to=\"%s\" "\
+			     "xml:lang=\"%s\" "		\
+			     "version=\"1.0\" "		\
+			     "xmlns=\"%s\" "		\
+			     "xmlns:stream=\"%s\">",
+			     conn->domain,
+			     conn->lang,
+			     conn->type == XMPP_CLIENT ? XMPP_NS_CLIENT : XMPP_NS_COMPONENT,
+			     XMPP_NS_STREAMS);
 }
 
 /** Disable TLS for this connection, called by users of the library.
@@ -675,99 +687,106 @@ void conn_open_stream(xmpp_conn_t * const conn)
  */
 void xmpp_conn_disable_tls(xmpp_conn_t * const conn)
 {
-    conn->tls_disabled = 1;
+	conn->tls_disabled = 1;
 }
 
 static void _log_open_tag(xmpp_conn_t *conn, char **attrs)
 {
-    char buf[4096];
-    size_t len, pos;
-    int i;
-    
-    if (!attrs) return;
+	char buf[4096];
+	size_t pos;
+	int len;
+	int i;
 
-    pos = 0;
-    len = xmpp_snprintf(buf, 4096, "<stream:stream");
-    if (len < 0) return;
-    
-    pos += len;
-    
-    for (i = 0; attrs[i]; i += 2) {
-        len = xmpp_snprintf(&buf[pos], 4096 - pos, " %s='%s'",
-                            attrs[i], attrs[i+1]);
-        if (len < 0) return;
-        pos += len;
-    }
+	if (!attrs)
+		return;
 
-    len = xmpp_snprintf(&buf[pos], 4096 - pos, ">");
-    if (len < 0) return;
+	pos = 0;
+	len = xmpp_snprintf(buf, 4096, "<stream:stream");
+	if (len < 0)
+		return;
 
-    xmpp_debug(conn->ctx, "xmpp", "RECV: %s", buf);
+	pos += len;
+
+	for (i = 0; attrs[i]; i += 2) {
+		len = xmpp_snprintf(&buf[pos], 4096 - pos, " %s='%s'",
+				    attrs[i], attrs[i+1]);
+		if (len < 0)
+			return;
+		pos += len;
+	}
+
+	len = xmpp_snprintf(&buf[pos], 4096 - pos, ">");
+	if (len < 0)
+		return;
+
+	xmpp_debug(conn->ctx, "xmpp", "RECV: %s", buf);
 }
 
 static char *_get_stream_attribute(char **attrs, char *name)
 {
-    int i;
+	int i;
 
-    if (!attrs) return NULL;
+	if (!attrs)
+		return NULL;
 
-    for (i = 0; attrs[i]; i += 2)
-        if (strcmp(name, attrs[i]) == 0)
-            return attrs[i+1];
+	for (i = 0; attrs[i]; i += 2)
+		if (!strcmp(name, attrs[i]))
+			return attrs[i+1];
 
-    return NULL;
+	return NULL;
 }
 
-static void _handle_stream_start(char *name, char **attrs, 
-                                 void * const userdata)
+static void _handle_stream_start(char *name, char **attrs,
+				 void * const userdata)
 {
-    xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
-    char *id;
+	xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
+	char *id;
 
-    if (strcmp(name, "stream:stream") != 0) {
-        printf("name = %s\n", name);
-        xmpp_error(conn->ctx, "conn", "Server did not open valid stream.");
-        conn_disconnect(conn);
-    } else {
-        _log_open_tag(conn, attrs);
-        
-        if (conn->stream_id) xmpp_free(conn->ctx, conn->stream_id);
+	if (strcmp(name, "stream:stream")) {
+		printf("name = %s\n", name);
+		xmpp_error(conn->ctx, "conn", "Server did not open valid stream.");
+		conn_disconnect(conn);
+	} else {
+		_log_open_tag(conn, attrs);
 
-        id = _get_stream_attribute(attrs, "id");
-        if (id)
-            conn->stream_id = xmpp_strdup(conn->ctx, id);
+		if (conn->stream_id)
+			xmpp_free(conn->ctx, conn->stream_id);
 
-        if (!conn->stream_id) {
-            xmpp_error(conn->ctx, "conn", "Memory allocation failed.");
-            conn_disconnect(conn);
-        }
-    }
-    
-    /* call stream open handler */
-    conn->open_handler(conn);
+		id = _get_stream_attribute(attrs, "id");
+		if (id)
+			conn->stream_id = xmpp_strdup(conn->ctx, id);
+
+		if (!conn->stream_id) {
+			xmpp_error(conn->ctx, "conn", "Memory allocation failed.");
+			conn_disconnect(conn);
+		}
+	}
+
+	/* call stream open handler */
+	conn->open_handler(conn);
 }
 
 static void _handle_stream_end(char *name,
-                               void * const userdata)
+			       void * const userdata)
 {
-    xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
+	xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
 
-    /* stream is over */
-    xmpp_debug(conn->ctx, "xmpp", "RECV: </stream:stream>");
-    conn_disconnect_clean(conn);
+	/* stream is over */
+	xmpp_debug(conn->ctx, "xmpp", "RECV: </stream:stream>");
+	conn_disconnect_clean(conn);
 }
 
 static void _handle_stream_stanza(xmpp_stanza_t *stanza,
-                                  void * const userdata)
+				  void * const userdata)
 {
-    xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
-    char *buf;
-    size_t len;
+	xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
+	char *buf;
+	size_t len;
 
-    if (xmpp_stanza_to_text(stanza, &buf, &len) == 0) {
-        xmpp_debug(conn->ctx, "xmpp", "RECV: %s", buf);
-        xmpp_free(conn->ctx, buf);
-    }
+	if (!xmpp_stanza_to_text(stanza, &buf, &len)) {
+		xmpp_debug(conn->ctx, "xmpp", "RECV: %s", buf);
+		xmpp_free(conn->ctx, buf);
+	}
 
-    handler_fire_stanza(conn, stanza);
+	handler_fire_stanza(conn, stanza);
 }

@@ -1,4 +1,4 @@
-/* strophepp.h
+/* coupletpp.h
 ** strophe XMPP client library C++ API
 **
 ** Copyright (C) 2005-2009 Collecta, Inc.
@@ -19,7 +19,7 @@
 #ifndef __LIBSTROPHE_STROPHEPP_H__
 #define __LIBSTROPHE_STROPHEPP_H__
 
-#include "strophe.h"
+#include "couplet.h"
 
 namespace XMPP {
     class Context {
@@ -43,10 +43,10 @@ namespace XMPP {
 
     private:
 	static void *callAlloc(const size_t size, void * const userdata);
-	static void *callRealloc(void *p, const size_t size, 
+	static void *callRealloc(void *p, const size_t size,
 				 void * const userdata);
 	static void callFree(void *p, void * const userdata);
-	static void callLog(void * const userdata, 
+	static void callLog(void * const userdata,
 			    const xmpp_log_level_t level,
 			    const char * const area,
 			    const char * const msg);
@@ -67,7 +67,7 @@ namespace XMPP {
 	void release();
 	Stanza *clone();
 	Stanza *copy();
-	
+
 	int toText(const char ** const buf, size_t * const buflen);
 	Stanza *getChildren();
 	Stanza *getChildByName(const char * const name);
