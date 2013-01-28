@@ -304,6 +304,8 @@ int xmpp_stanza_is_tag(xmpp_stanza_t * const stanza);
 int xmpp_stanza_to_text(xmpp_stanza_t *stanza, 
 			char ** const buf, size_t * const buflen);
 
+xmpp_stanza_t *xmpp_stanza_get_parent(xmpp_stanza_t * const stanza);
+
 xmpp_stanza_t *xmpp_stanza_get_children(xmpp_stanza_t * const stanza);
 xmpp_stanza_t *xmpp_stanza_get_child_by_name(xmpp_stanza_t * const stanza, 
 					     const char * const name);

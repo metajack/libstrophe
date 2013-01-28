@@ -865,3 +865,16 @@ char *xmpp_stanza_get_attribute(xmpp_stanza_t * const stanza,
 
     return hash_get(stanza->attributes, name);
 }
+
+/** Get the parent of a stanza.
+ *
+ * @param stanza a Strophe stanza object
+ *
+ * @return the parent stanza of NULL if the stanza does not have a parent
+ *
+ * @ingroup Stanza
+ */
+xmpp_stanza_t *xmpp_stanza_get_parent(xmpp_stanza_t * const stanza)
+{
+    return stanza->parent;
+}
