@@ -74,6 +74,10 @@ extern "C" {
  *  Namespace definition for 'jabber:iq:roster'.
  */
 #define XMPP_NS_ROSTER "jabber:iq:roster"
+/** @def XMPP_NS_PING
+ *  Namespace definition for 'urn:xmpp:ping'.
+ */
+#define XMPP_NS_PING "urn:xmpp:ping"
 
 /* error defines */
 /** @def XMPP_EOK
