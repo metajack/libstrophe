@@ -249,32 +249,38 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
 {
     int oldret, ret;
     char smbuf[1024];
-    char *buf;
-    va_list copy;
+    char *bigbuf = NULL;
+    va_list ap_copy;
 
-    buf = smbuf;
-    va_copy(copy, ap);
-    ret = xmpp_vsnprintf(buf, 1023, fmt, ap);
+    va_copy(ap_copy, ap);
+    ret = xmpp_vsnprintf(smbuf, 1023, fmt, ap_copy);
+    va_end(ap_copy);
     if (ret > 1023) {
-	buf = (char *)xmpp_alloc(ctx, ret + 1);
-	if (!buf) {
-	    buf = NULL;
-	    xmpp_error(ctx, "log", "Failed allocating memory for log message.");
-            va_end(copy);
-	    return;
-	}
-	oldret = ret;
-	ret = xmpp_vsnprintf(buf, ret + 1, fmt, copy);
-	if (ret > oldret) {
-	    xmpp_error(ctx, "log", "Unexpected error");
-	    return;
-	}
-    } else {
-        va_end(copy);
-    }
+        bigbuf = (char *)xmpp_alloc(ctx, ret + 1);
+        if (!bigbuf) {
+            bigbuf = NULL;
+            xmpp_error(ctx, "log", "Failed allocating memory for log message.");
+            return;
+        }
+        oldret = ret;
+		va_copy(ap_copy, ap);
+        ret = xmpp_vsnprintf(bigbuf, ret + 1, fmt, ap_copy);
+    	va_end(ap_copy);
 
-    if (ctx->log->handler)
-        ctx->log->handler(ctx->log->userdata, level, area, buf);
+        if (ret > oldret) {
+            xmpp_error(ctx, "log", "Unexpected error");
+            return;
+        }
+
+        if (ctx->log->handler) {
+            ctx->log->handler(ctx->log->userdata, level, area, bigbuf);
+        }
+        xmpp_free(ctx, bigbuf);
+    } else {
+        if (ctx->log->handler) {
+            ctx->log->handler(ctx->log->userdata, level, area, smbuf);
+        }
+    }
 }
 
 /** Write to the log at the ERROR level.
