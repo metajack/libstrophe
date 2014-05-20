@@ -366,6 +366,7 @@ void xmpp_presence_new();
 void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long  timeout);
 void xmpp_run(xmpp_ctx_t *ctx);
 void xmpp_stop(xmpp_ctx_t *ctx);
+void xmpp_graceful_stop(xmpp_ctx_t *ctx, const unsigned long timeout);
 
 #ifdef __cplusplus
 }

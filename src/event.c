@@ -148,6 +148,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	    xmpp_free(ctx, sq->data);
 	    tsq = sq;
 	    sq = sq->next;
+	    conn->send_queue_len--;
 	    xmpp_free(ctx, tsq);
 
 	    /* pop the top item */
@@ -348,4 +349,36 @@ void xmpp_stop(xmpp_ctx_t *ctx)
 
     if (ctx->loop_status == XMPP_LOOP_RUNNING)
 	ctx->loop_status = XMPP_LOOP_QUIT;
+}
+void xmpp_graceful_stop(xmpp_ctx_t *ctx, const unsigned long timeout)
+{
+    xmpp_connlist_t *connitem;
+    xmpp_conn_t *conn;
+    xmpp_conn_t *c;
+    xmpp_debug(ctx, "event", "Gracefully Stopping event loop.");
+    uint64_t then = time_stamp();
+    int sent_data;
+    /* We loop through each connection calling xmpp_run_once each
+     * time we find a connection with enqueued data until we loop
+     * through all connections once without finding any data to send 
+     * or until we exceed the passed in timeout.
+     */
+    if (ctx->loop_status == XMPP_LOOP_RUNNING) {
+	for (;;) {
+	    sent_data = 0;
+	    for (connitem=ctx->connlist;connitem;connitem=connitem->next) {
+		conn=connitem->conn;
+		if (!conn || conn->send_queue_len == 0)
+		    continue;
+		xmpp_run_once(ctx, 1);
+	        sent_data++;
+		if (time_stamp() - then > timeout)
+		    break;
+	    }
+	    if (sent_data == 0)
+		break;
+	}
+	xmpp_debug(ctx, "event", "Finished Gracefully Stopping Event Loop");
+	ctx->loop_status = XMPP_LOOP_QUIT;
+    }
 }
