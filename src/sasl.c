@@ -6,36 +6,27 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
  *  SASL authentication.
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "strophe.h"
 #include "common.h"
+#include "ostypes.h"
 #include "sasl.h"
 #include "md5.h"
+#include "sha1.h"
+#include "scram.h"
+#include "rand.h"
 
-/* make sure the stdint.h types are available */
-#if defined(_MSC_VER) /* Microsoft Visual C++ */
-  typedef signed char             int8_t;
-  typedef short int               int16_t;
-  typedef int                     int32_t;
-  typedef __int64                 int64_t;
-
-  typedef unsigned char             uint8_t;
-  typedef unsigned short int        uint16_t;
-  typedef unsigned int              uint32_t;
-  /* no uint64_t */
-#else
-#include <stdint.h>
+#ifdef _WIN32
+#define strtok_r strtok_s
 #endif
 
 
@@ -228,6 +219,7 @@ char *sasl_digest_md5(xmpp_ctx_t *ctx, const char *challenge,
     struct MD5Context MD5;
     unsigned char digest[16], HA1[16], HA2[16];
     char hex[32];
+    char cnonce[13];
 
     /* our digest response is 
 	Hex( KD( HEX(MD5(A1)),
@@ -260,8 +252,8 @@ char *sasl_digest_md5(xmpp_ctx_t *ctx, const char *challenge,
 
     /* add our response fields */
     hash_add(table, "username", xmpp_strdup(ctx, node));
-    /* TODO: generate a random cnonce */
-    hash_add(table, "cnonce", xmpp_strdup(ctx, "00DEADBEEF00"));
+    xmpp_rand_nonce(ctx, cnonce, sizeof(cnonce));
+    hash_add(table, "cnonce", xmpp_strdup(ctx, cnonce));
     hash_add(table, "nc", xmpp_strdup(ctx, "00000001"));
     hash_add(table, "qop", xmpp_strdup(ctx, "auth"));
     value = xmpp_alloc(ctx, 5 + strlen(domain) + 1);
@@ -360,6 +352,113 @@ char *sasl_digest_md5(xmpp_ctx_t *ctx, const char *challenge,
     return response;
 }
 
+/** generate auth response string for the SASL SCRAM-SHA-1 mechanism */
+char *sasl_scram_sha1(xmpp_ctx_t *ctx, const char *challenge,
+                      const char *first_bare, const char *jid,
+                      const char *password)
+{
+    uint8_t key[SHA1_DIGEST_SIZE];
+    uint8_t sign[SHA1_DIGEST_SIZE];
+    char *r = NULL;
+    char *s = NULL;
+    char *i = NULL;
+    char *sval;
+    size_t sval_len;
+    long ival;
+    char *tmp;
+    char *ptr;
+    char *saveptr = NULL;
+    char *response;
+    char *auth;
+    char *response_b64;
+    char *sign_b64;
+    char *result = NULL;
+    size_t response_len;
+    size_t auth_len;
+    int j;
+
+    tmp = xmpp_strdup(ctx, challenge);
+    if (!tmp) {
+        return NULL;
+    }
+
+    ptr = strtok_r(tmp, ",", &saveptr);
+    while (ptr) {
+        if (strncmp(ptr, "r=", 2) == 0) {
+            r = ptr;
+        } else if (strncmp(ptr, "s=", 2) == 0) {
+            s = ptr + 2;
+        } else if (strncmp(ptr, "i=", 2) == 0) {
+            i = ptr + 2;
+        }
+        ptr = strtok_r(NULL, ",", &saveptr);
+    }
+
+    if (!r || !s || !i) {
+        goto out;
+    }
+
+    sval = (char *)base64_decode(ctx, s, strlen(s));
+    if (!sval) {
+        goto out;
+    }
+    sval_len = base64_decoded_len(ctx, s, strlen(s));
+    ival = strtol(i, &saveptr, 10);
+
+    auth_len = 10 + strlen(r) + strlen(first_bare) + strlen(challenge);
+    auth = xmpp_alloc(ctx, auth_len);
+    if (!auth) {
+        goto out_sval;
+    }
+
+    response_len = 39 + strlen(r);
+    response = xmpp_alloc(ctx, response_len);
+    if (!response) {
+        goto out_auth;
+    }
+
+    xmpp_snprintf(response, response_len, "c=biws,%s", r);
+    xmpp_snprintf(auth, auth_len, "%s,%s,%s", first_bare + 3, challenge,
+                  response);
+
+    SCRAM_SHA1_ClientKey((uint8_t *)password, strlen(password),
+                         (uint8_t *)sval, sval_len, (uint32_t)ival, key);
+    SCRAM_SHA1_ClientSignature(key, (uint8_t *)auth, strlen(auth), sign);
+    for (j = 0; j < SHA1_DIGEST_SIZE; j++) {
+        sign[j] ^= key[j];
+    }
+
+    sign_b64 = base64_encode(ctx, sign, sizeof(sign));
+    if (!sign_b64) {
+        goto out_response;
+    }
+
+    if (strlen(response) + strlen(sign_b64) + 3 + 1 > response_len) {
+        xmpp_free(ctx, sign_b64);
+        goto out_response;
+    }
+    strcat(response, ",p=");
+    strcat(response, sign_b64);
+    xmpp_free(ctx, sign_b64);
+
+    response_b64 = base64_encode(ctx, (unsigned char *)response,
+                                 strlen(response));
+    if (!response_b64) {
+        goto out_response;
+    }
+    result = response_b64;
+
+out_response:
+    xmpp_free(ctx, response);
+out_auth:
+    xmpp_free(ctx, auth);
+out_sval:
+    xmpp_free(ctx, sval);
+out:
+    xmpp_free(ctx, tmp);
+    return result;
+}
+
 
 /** Base64 encoding routines. Implemented according to RFC 3548 */
 
@@ -410,14 +509,14 @@ char *base64_encode(xmpp_ctx_t *ctx,
     int clen;
     char *cbuf, *c;
     uint32_t word, hextet;
-    int i;
+    unsigned i;
 
     clen = base64_encoded_len(ctx, len);
     cbuf = xmpp_alloc(ctx, clen + 1);
     if (cbuf != NULL) {
 	c = cbuf;
 	/* loop over data, turning every 3 bytes into 4 characters */
-	for (i = 0; i < len - 2; i += 3) {
+	for (i = 0; i + 2 < len; i += 3) {
 	    word = buffer[i] << 16 | buffer[i+1] << 8 | buffer[i+2];
 	    hextet = (word & 0x00FC0000) >> 18;
 	    *c++ = _base64_charmap[hextet];
@@ -464,6 +563,8 @@ int base64_decoded_len(xmpp_ctx_t *ctx,
     int nudge;
     int c;
 
+    if (len < 4) return 0;
+
     /* count the padding characters for the remainder */
     nudge = -1;
     c = _base64_invcharmap[(int)buffer[len-1]];
@@ -487,8 +588,8 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
 {
     int dlen;
     unsigned char *dbuf, *d;
-    uint32_t word, hextet;
-    int i;
+    uint32_t word, hextet = 0;
+    unsigned i;
 
     /* len must be a multiple of 4 */
     if (len & 0x03) return NULL;
@@ -498,7 +599,7 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
     if (dbuf != NULL) {
 	d = dbuf;
 	/* loop over each set of 4 characters, decoding 3 bytes */
-	for (i = 0; i < len - 3; i += 4) {
+	for (i = 0; i + 3 < len; i += 4) {
 	    hextet = _base64_invcharmap[(int)buffer[i]];
 	    if (hextet & 0xC0) break;
 	    word = hextet << 18;
@@ -552,8 +653,8 @@ unsigned char *base64_decode(xmpp_ctx_t *ctx,
 		if (hextet != 64) goto _base64_decode_error;
 		break;
 	}
+	*d = '\0';
     }
-    *d = '\0';
     return dbuf;
 
 _base64_decode_error:	

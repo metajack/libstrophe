@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+** This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /* This example demonstrates basic handler functions by printing out
@@ -111,6 +108,13 @@ int main(int argc, char **argv)
 
     /* create a connection */
     conn = xmpp_conn_new(ctx);
+
+    /*
+     * also you can disable TLS support or force legacy SSL
+     * connection without STARTTLS
+     *
+     * see xmpp_conn_set_flags() or examples/basic.c
+     */
 
     /* setup authentication information */
     xmpp_conn_set_jid(conn, argv[1]);

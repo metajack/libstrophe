@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+** This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -40,11 +37,14 @@
 #ifndef _WIN32
 #include <sys/select.h>
 #include <errno.h>
+#include <unistd.h>
+#define _sleep(x) usleep(x*1000)
 #else
 #include <winsock2.h>
 #define ETIMEDOUT WSAETIMEDOUT
 #define ECONNRESET WSAECONNRESET
 #define ECONNABORTED WSAECONNABORTED
+#define _sleep(x) Sleep(x)
 #endif
 
 #include <strophe.h>
@@ -123,6 +123,10 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		if (ret < 0 && !tls_is_recoverable(tls_error(conn->tls))) {
 		    /* an error occured */
 		    conn->error = tls_error(conn->tls);
+		    if( conn->error == 5 )
+			xmpp_debug(ctx, "xmpp", "Unrecoverable TLS write error, syscall %s.", strerror(errno));
+		    else
+			xmpp_debug(ctx, "xmpp", "Unrecoverable TLS write error, %d.", conn->error);
 		    break;
 		} else if (ret < towrite) {
 		    /* not all data could be sent now */
@@ -221,13 +225,20 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 	    tls_read_bytes += tls_pending(conn->tls);
 	}
 	
-	if (conn->sock > max) max = conn->sock;
+	if (conn->state != XMPP_STATE_DISCONNECTED && conn->sock > max)
+	    max = conn->sock;
 
 	connitem = connitem->next;
     }
 
     /* check for events */
-    ret = select(max + 1, &rfds,  &wfds, NULL, &tv);
+    if (max > 0)
+        ret = select(max + 1, &rfds,  &wfds, NULL, &tv);
+    else {
+        if (timeout > 0)
+            _sleep(timeout);
+        return;
+    }
 
     /* select errored */
     if (ret < 0) {
@@ -251,9 +262,10 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		/* connection complete */
 
 		/* check for error */
-		if (sock_connect_error(conn->sock) != 0) {
+                ret = sock_connect_error(conn->sock);
+		if (ret != 0) {
 		    /* connection failed */
-		    xmpp_debug(ctx, "xmpp", "connection failed");
+		    xmpp_debug(ctx, "xmpp", "connection failed, error %d", ret);
 		    conn_disconnect(conn);
 		    break;
 		}
@@ -261,7 +273,15 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		conn->state = XMPP_STATE_CONNECTED;
 		xmpp_debug(ctx, "xmpp", "connection successful");
 
-		
+                if (conn->tls_legacy_ssl) {
+                    xmpp_debug(ctx, "xmpp", "using legacy SSL connection");
+                    ret = conn_tls_start(conn);
+                    if (ret != 0) {
+                        conn_disconnect(conn);
+                        break;
+                    }
+                }
+
 		/* send stream init */
 		conn_open_stream(conn);
 	    }
@@ -287,8 +307,11 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 		    if (conn->tls) {
 			if (!tls_is_recoverable(tls_error(conn->tls)))
 			{
-			    xmpp_debug(ctx, "xmpp", "Unrecoverable TLS error, %d.", tls_error(conn->tls));
 			    conn->error = tls_error(conn->tls);
+			    if( conn->error == 5 )
+				xmpp_debug(ctx, "xmpp", "Unrecoverable TLS read error, syscall %s.", strerror(errno));
+			    else
+				xmpp_debug(ctx, "xmpp", "Unrecoverable TLS read error, %d.", conn->error);
 			    conn_disconnect(conn);
 			}
 		    } else {

@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -19,11 +16,7 @@
 #ifndef __LIBSTROPHE_UTIL_H__
 #define __LIBSTROPHE_UTIL_H__
 
-#ifndef _WIN32
-#include <stdint.h>
-#else
 #include "ostypes.h"
-#endif
 
 /* timing functions */
 uint64_t time_stamp(void);

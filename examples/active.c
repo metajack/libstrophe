@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+** This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /* This example demonstrates basic handler functions by printing out
@@ -62,7 +59,7 @@ void conn_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status,
 	xmpp_stanza_set_name(iq, "iq");
 	xmpp_stanza_set_type(iq, "get");
 	xmpp_stanza_set_id(iq, "active1");
-	xmpp_stanza_set_attribute(iq, "to", "xxxxxxxxx.com");
+	xmpp_stanza_set_to(iq, "xxxxxxxxx.com");
 
 	query = xmpp_stanza_new(ctx);
 	xmpp_stanza_set_name(query, "query");
@@ -106,6 +103,13 @@ int main(int argc, char **argv)
 
     /* create a connection */
     conn = xmpp_conn_new(ctx);
+
+    /*
+     * also you can disable TLS support or force legacy SSL
+     * connection without STARTTLS
+     *
+     * see xmpp_conn_set_flags() or examples/basic.c
+     */
 
     /* setup authentication information */
     xmpp_conn_set_jid(conn, argv[1]);

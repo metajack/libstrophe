@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -23,14 +20,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef _WIN32
-#include <stdint.h>
-#else
-#include "ostypes.h"
-#endif
-
 #include "strophe.h"
 #include "common.h"
+#include "ostypes.h"
 
 /** Fire off all stanza handlers that match.
  *  This function is called internally by the event loop whenever stanzas

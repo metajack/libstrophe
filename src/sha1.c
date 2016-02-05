@@ -70,51 +70,22 @@ use SHA1_ prefix for public api
 move public api to sha1.h
 */
 
-/*
-Test Vectors (from FIPS PUB 180-1)
-"abc"
-  A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D
-"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-  84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1
-A million repetitions of "a"
-  34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
-*/
+/* Don't change user's data */
+#define SHA1HANDSOFF
 
-/* #define SHA1HANDSOFF  */
-
-#include <stdio.h>
 #include <string.h>
 
-/* make sure the stdint.h types are available */
-#if defined(_MSC_VER) /* Microsoft Visual C++ */
-  typedef signed char             int8_t;
-  typedef short int               int16_t;
-  typedef int                     int32_t;
-  typedef __int64                 int64_t;
- 
-  typedef unsigned char             uint8_t;
-  typedef unsigned short int        uint16_t;
-  typedef unsigned int              uint32_t;
-  /* no uint64_t */
-#else
-#include <stdint.h>
-#endif
-
+#include "ostypes.h"
 #include "sha1.h"
 
-void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64]);
+static uint32_t host_to_be(uint32_t i);
+static void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64]);
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
 /* blk0() and blk() perform the initial expand. */
 /* I got the idea of expanding during the round function from SSLeay */
-/* FIXME: can we do this in an endian-proof way? */
-#ifdef WORDS_BIGENDIAN
-#define blk0(i) block->l[i]
-#else
-#define blk0(i) (block->l[i] = (rol(block->l[i],24)&0xFF00FF00) \
-    |(rol(block->l[i],8)&0x00FF00FF))
-#endif
+#define blk0(i) (block->l[i] = host_to_be(block->l[i]))
 #define blk(i) (block->l[i&15] = rol(block->l[(i+13)&15]^block->l[(i+8)&15] \
     ^block->l[(i+2)&15]^block->l[i&15],1))
 
@@ -126,21 +97,28 @@ void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64]);
 #define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
 
 
-#ifdef VERBOSE  /* SAK */
-void SHAPrintContext(SHA1_CTX *context, char *msg){
-  printf("%s (%d,%d) %x %x %x %x %x\n",
-	 msg,
-	 context->count[0], context->count[1], 
-	 context->state[0],
-	 context->state[1],
-	 context->state[2],
-	 context->state[3],
-	 context->state[4]);
+static uint32_t host_to_be(uint32_t i)
+{
+#define le_to_be(i) ((rol((i),24) & 0xFF00FF00) | (rol((i),8) & 0x00FF00FF))
+#if defined(__BIG_ENDIAN__) || \
+    (defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
+    __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    return i;
+#elif defined(__LITTLE_ENDIAN__) || \
+      (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
+      __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+    return le_to_be(i);
+#else /* fallback to run-time check */
+    static const union {
+        uint32_t u;
+        unsigned char c;
+    } check = {1};
+    return check.c ? le_to_be(i) : i;
+#endif
 }
-#endif /* VERBOSE */
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
-void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
+static void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
 {
     uint32_t a, b, c, d, e;
     typedef union {
@@ -199,7 +177,7 @@ void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
 
 
 /* SHA1Init - Initialize new context */
-void SHA1_Init(SHA1_CTX* context)
+void crypto_SHA1_Init(SHA1_CTX* context)
 {
     /* SHA1 initialization constants */
     context->state[0] = 0x67452301;
@@ -212,13 +190,10 @@ void SHA1_Init(SHA1_CTX* context)
 
 
 /* Run your data through this. */
-void SHA1_Update(SHA1_CTX* context, const uint8_t* data, const size_t len)
+void crypto_SHA1_Update(SHA1_CTX* context, const uint8_t* data,
+                        const size_t len)
 {
     size_t i, j;
-
-#ifdef VERBOSE
-    SHAPrintContext(context, "before");
-#endif
 
     j = (context->count[0] >> 3) & 63;
     if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
@@ -233,15 +208,11 @@ void SHA1_Update(SHA1_CTX* context, const uint8_t* data, const size_t len)
     }
     else i = 0;
     memcpy(&context->buffer[j], &data[i], len - i);
-
-#ifdef VERBOSE
-    SHAPrintContext(context, "after ");
-#endif
 }
 
 
 /* Add padding and return the message digest. */
-void SHA1_Final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
+void crypto_SHA1_Final(SHA1_CTX* context, uint8_t* digest)
 {
     uint32_t i;
     uint8_t  finalcount[8];
@@ -250,11 +221,11 @@ void SHA1_Final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
         finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
          >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
     }
-    SHA1_Update(context, (uint8_t *)"\200", 1);
+    crypto_SHA1_Update(context, (uint8_t *)"\200", 1);
     while ((context->count[0] & 504) != 448) {
-        SHA1_Update(context, (uint8_t *)"\0", 1);
+        crypto_SHA1_Update(context, (uint8_t *)"\0", 1);
     }
-    SHA1_Update(context, finalcount, 8);  /* Should cause a SHA1_Transform() */
+    crypto_SHA1_Update(context, finalcount, 8);  /* Should cause a SHA1_Transform() */
     for (i = 0; i < SHA1_DIGEST_SIZE; i++) {
         digest[i] = (uint8_t)
          ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
@@ -271,119 +242,12 @@ void SHA1_Final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
     SHA1_Transform(context->state, context->buffer);
 #endif
 }
-  
-/*************************************************************/
 
-#if 0
-int main(int argc, char** argv)
+
+void crypto_SHA1(const uint8_t* data, size_t len, uint8_t* digest)
 {
-int i, j;
-SHA1_CTX context;
-unsigned char digest[SHA1_DIGEST_SIZE], buffer[16384];
-FILE* file;
-
-    if (argc > 2) {
-        puts("Public domain SHA-1 implementation - by Steve Reid <sreid@sea-to-sky.net>");
-        puts("Modified for 16 bit environments 7/98 - by James H. Brown <jbrown@burgoyne.com>");	/* JHB */
-        puts("Produces the SHA-1 hash of a file, or stdin if no file is specified.");
-        return(0);
-    }
-    if (argc < 2) {
-        file = stdin;
-    }
-    else {
-        if (!(file = fopen(argv[1], "rb"))) {
-            fputs("Unable to open file.", stderr);
-            return(-1);
-        }
-    } 
-    SHA1_Init(&context);
-    while (!feof(file)) {  /* note: what if ferror(file) */
-        i = fread(buffer, 1, 16384, file);
-        SHA1_Update(&context, buffer, i);
-    }
-    SHA1_Final(&context, digest);
-    fclose(file);
-    for (i = 0; i < SHA1_DIGEST_SIZE/4; i++) {
-        for (j = 0; j < 4; j++) {
-            printf("%02X", digest[i*4+j]);
-        }
-        putchar(' ');
-    }
-    putchar('\n');
-    return(0);	/* JHB */
+    SHA1_CTX ctx;
+    crypto_SHA1_Init(&ctx);
+    crypto_SHA1_Update(&ctx, data, len);
+    crypto_SHA1_Final(&ctx, digest);
 }
-#endif
-
-/* self test */
-
-#ifdef TEST
-
-static char *test_data[] = {
-    "abc",
-    "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
-    "A million repetitions of 'a'"};
-static char *test_results[] = {
-    "A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D",
-    "84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1",
-    "34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F"};
-    
-
-void digest_to_hex(const uint8_t digest[SHA1_DIGEST_SIZE], char *output)
-{
-    int i,j;
-    char *c = output;
-    
-    for (i = 0; i < SHA1_DIGEST_SIZE/4; i++) {
-        for (j = 0; j < 4; j++) {
-            sprintf(c,"%02X", digest[i*4+j]);
-            c += 2;
-        }
-        sprintf(c, " ");
-        c += 1;
-    }
-    *(c - 1) = '\0';
-}
-    
-int main(int argc, char** argv)
-{
-    int k;
-    SHA1_CTX context;
-    uint8_t digest[20];
-    char output[80];
-
-    fprintf(stdout, "verifying SHA-1 implementation... ");
-    
-    for (k = 0; k < 2; k++){ 
-        SHA1_Init(&context);
-        SHA1_Update(&context, (uint8_t*)test_data[k], strlen(test_data[k]));
-        SHA1_Final(&context, digest);
-	digest_to_hex(digest, output);
-
-        if (strcmp(output, test_results[k])) {
-            fprintf(stdout, "FAIL\n");
-            fprintf(stderr,"* hash of \"%s\" incorrect:\n", test_data[k]);
-            fprintf(stderr,"\t%s returned\n", output);
-            fprintf(stderr,"\t%s is correct\n", test_results[k]);
-            return (1);
-        }    
-    }
-    /* million 'a' vector we feed separately */
-    SHA1_Init(&context);
-    for (k = 0; k < 1000000; k++)
-        SHA1_Update(&context, (uint8_t*)"a", 1);
-    SHA1_Final(&context, digest);
-    digest_to_hex(digest, output);
-    if (strcmp(output, test_results[2])) {
-        fprintf(stdout, "FAIL\n");
-        fprintf(stderr,"* hash of \"%s\" incorrect:\n", test_data[2]);
-        fprintf(stderr,"\t%s returned\n", output);
-        fprintf(stderr,"\t%s is correct\n", test_results[2]);
-        return (1);
-    }
-
-    /* success */
-    fprintf(stdout, "ok\n");
-    return(0);
-}
-#endif /* TEST */

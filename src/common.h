@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express or
 **  implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -21,17 +18,17 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#ifndef _WIN32
-#include <stdint.h>
-#endif
 
 
 #include "strophe.h"
+#include "ostypes.h"
 #include "sock.h"
 #include "tls.h"
 #include "hash.h"
 #include "util.h"
 #include "parser.h"
+#include "rand.h"
+#include "snprintf.h"
 
 /** run-time context **/
 
@@ -50,6 +47,7 @@ struct _xmpp_ctx_t {
     const xmpp_mem_t *mem;
     const xmpp_log_t *log;
 
+    xmpp_rand_t *rand;
     xmpp_loop_status_t loop_status;
     xmpp_connlist_t *connlist;
 };
@@ -84,17 +82,6 @@ void xmpp_debug(const xmpp_ctx_t * const ctx,
 		const char * const area,
 		const char * const fmt,
 		...);
-
-/** jid */
-/* these return new strings that must be xmpp_free()'d */
-char *xmpp_jid_new(xmpp_ctx_t *ctx, const char *node,
-                                    const char *domain,
-                                    const char *resource);
-char *xmpp_jid_bare(xmpp_ctx_t *ctx, const char *jid);
-char *xmpp_jid_node(xmpp_ctx_t *ctx, const char *jid);
-char *xmpp_jid_domain(xmpp_ctx_t *ctx, const char *jid);
-char *xmpp_jid_resource(xmpp_ctx_t *ctx, const char *jid);
-
 
 /** connection **/
 
@@ -147,6 +134,13 @@ struct _xmpp_handlist_t {
 #define SASL_MASK_PLAIN 0x01
 #define SASL_MASK_DIGESTMD5 0x02
 #define SASL_MASK_ANONYMOUS 0x04
+#define SASL_MASK_SCRAMSHA1 0x08
+
+enum {
+    XMPP_PORT_CLIENT = 5222,
+    XMPP_PORT_CLIENT_LEGACY_SSL = 5223,
+    XMPP_PORT_COMPONENT = 5347,
+};
 
 typedef void (*xmpp_open_handler)(xmpp_conn_t * const conn);
 
@@ -164,6 +158,8 @@ struct _xmpp_conn_t {
 
     int tls_support;
     int tls_disabled;
+    int tls_mandatory;
+    int tls_legacy_ssl;
     int tls_failed; /* set when tls fails, so we don't try again */
     int sasl_support; /* if true, field is a bitfield of supported 
 			 mechanisms */ 
@@ -217,6 +213,7 @@ struct _xmpp_conn_t {
 void conn_disconnect(xmpp_conn_t * const conn);
 void conn_disconnect_clean(xmpp_conn_t * const conn);
 void conn_open_stream(xmpp_conn_t * const conn);
+int conn_tls_start(xmpp_conn_t * const conn);
 void conn_prepare_reset(xmpp_conn_t * const conn, xmpp_open_handler handler);
 void conn_parser_reset(xmpp_conn_t * const conn);
 
@@ -268,9 +265,6 @@ void disconnect_mem_error(xmpp_conn_t * const conn);
 
 /* auth functions */
 void auth_handle_open(xmpp_conn_t * const conn);
-
-/* replacement snprintf and vsnprintf */
-int xmpp_snprintf (char *str, size_t count, const char *fmt, ...);
-int xmpp_vsnprintf (char *str, size_t count, const char *fmt, va_list arg);
+void auth_handle_component_open(xmpp_conn_t * const conn);
 
 #endif /* __LIBSTROPHE_COMMON_H__ */

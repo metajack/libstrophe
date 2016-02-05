@@ -6,10 +6,7 @@
 **  This software is provided AS-IS with no warranty, either express 
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -148,7 +145,7 @@ static const xmpp_log_level_t _xmpp_default_logger_levels[] = {XMPP_LEVEL_DEBUG,
  *  @param area the area the log message is for
  *  @param msg the log message
  */
-void xmpp_default_logger(void * const userdata,
+static void xmpp_default_logger(void * const userdata,
 			 const xmpp_log_level_t level,
 			 const char * const area,
 			 const char * const msg)
@@ -252,29 +249,34 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
     char *buf;
     va_list copy;
 
-    buf = smbuf;
     va_copy(copy, ap);
-    ret = xmpp_vsnprintf(buf, 1023, fmt, ap);
-    if (ret > 1023) {
+    ret = xmpp_vsnprintf(smbuf, sizeof(smbuf), fmt, ap);
+    if (ret >= (int)sizeof(smbuf)) {
 	buf = (char *)xmpp_alloc(ctx, ret + 1);
 	if (!buf) {
 	    buf = NULL;
 	    xmpp_error(ctx, "log", "Failed allocating memory for log message.");
-            va_end(copy);
+	    va_end(copy);
 	    return;
 	}
 	oldret = ret;
 	ret = xmpp_vsnprintf(buf, ret + 1, fmt, copy);
 	if (ret > oldret) {
 	    xmpp_error(ctx, "log", "Unexpected error");
+	    xmpp_free(ctx, buf);
+	    va_end(copy);
 	    return;
 	}
     } else {
-        va_end(copy);
+	buf = smbuf;
     }
+    va_end(copy);
 
     if (ctx->log->handler)
         ctx->log->handler(ctx->log->userdata, level, area, buf);
+
+    if (buf != smbuf)
+        xmpp_free(ctx, buf);
 }
 
 /** Write to the log at the ERROR level.
@@ -402,6 +404,11 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 
 	ctx->connlist = NULL;
 	ctx->loop_status = XMPP_LOOP_NOTSTARTED;
+	ctx->rand = xmpp_rand_new(ctx);
+	if (ctx->rand == NULL) {
+	    xmpp_free(ctx, ctx);
+	    ctx = NULL;
+	}
     }
 
     return ctx;
@@ -416,6 +423,7 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
 void xmpp_ctx_free(xmpp_ctx_t * const ctx)
 {
     /* mem and log are owned by their suppliers */
+    xmpp_rand_free(ctx, ctx->rand);
     xmpp_free(ctx, ctx); /* pull the hole in after us */
 }
 
