@@ -1,10 +1,5 @@
 #!/bin/sh
 
-ACFLAGS=""
-if [ -d /usr/local/share/aclocal ]; then
-    ACFLAGS="-I /usr/local/share/aclocal"
-fi
-
-aclocal ${ACFLAGS}
-automake --add-missing --foreign --copy
-autoconf
+# Some versions of aclocal fail if m4/ doesn't exist
+mkdir -p m4
+autoreconf -i

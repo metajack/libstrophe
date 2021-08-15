@@ -1,15 +1,12 @@
 /* util.c
 ** strophe XMPP client library -- various utility functions
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
 **
-**  This software is distributed under license and may not be copied,
-**  modified or distributed except as expressly authorized under the
-**  terms of the license contained in the file LICENSE.txt in this
-**  distribution.
+**  This program is dual licensed under the MIT and GPLv3 licenses.
 */
 
 /** @file
@@ -24,11 +21,11 @@
 #else
 #include <sys/time.h>
 #include <time.h>
-#include <stdint.h>
 #endif
 
 #include "strophe.h"
 #include "common.h"
+#include "ostypes.h"
 #include "util.h"
 
 /** implement our own strdup that uses the ctx allocator */
@@ -41,7 +38,7 @@
  *
  *  @return a new allocates string with the same data as s or NULL on error
  */
-char *xmpp_strdup(const xmpp_ctx_t * const ctx, const char * const s)
+char *xmpp_strdup(const xmpp_ctx_t *ctx, const char *s)
 {
     size_t len;
     char *copy;
@@ -58,6 +55,28 @@ char *xmpp_strdup(const xmpp_ctx_t * const ctx, const char * const s)
     return copy;
 }
 
+/** strtok_r(3) implementation.
+ *  This function has appeared in POSIX.1-2001, but not in C standard.
+ *  For example, visual studio older than 2005 doesn't provide strtok_r()
+ *  nor strtok_s().
+ */
+char *xmpp_strtok_r(char *s, const char *delim, char **saveptr)
+{
+    size_t len;
+
+    s = s ? s : *saveptr;
+    len = strspn(s, delim);
+    s += len;
+    if (*s == '\0')
+        return NULL;
+
+    len = strcspn(s, delim);
+    *saveptr = s[len] == '\0' ? &s[len] : &s[len + 1];
+    s[len] = '\0';
+
+    return s;
+}
+
 /** Return an integer based time stamp.
  *  This function uses gettimeofday or timeGetTime (on Win32 platforms) to
  *  compute an integer based time stamp.  This is used internally by the
@@ -67,8 +86,24 @@ char *xmpp_strdup(const xmpp_ctx_t * const ctx, const char * const s)
  */
 uint64_t time_stamp(void)
 {
-#ifdef _WIN32
-    return timeGetTime();
+#if defined(_WIN32) || defined(_XBOX_ONE)
+
+#ifndef __GNUC__
+#define EPOCHFILETIME (116444736000000000i64)
+#else
+#define EPOCHFILETIME (116444736000000000LL)
+#endif
+
+    FILETIME ft;
+    LARGE_INTEGER li;
+    __int64 t;
+
+    GetSystemTimeAsFileTime(&ft);
+    li.LowPart = ft.dwLowDateTime;
+    li.HighPart = ft.dwHighDateTime;
+    t = li.QuadPart;              /* In 100-nanosecond intervals */
+    t -= EPOCHFILETIME;           /* Offset to the Epoch time */
+    return (uint64_t)(t / 10000); /* Convert to milliseconds */
 #else
     struct timeval tv;
 
@@ -95,12 +130,12 @@ uint64_t time_elapsed(uint64_t t1, uint64_t t2)
 
 /** Disconnect the stream with a memory error.
  *  This is a convenience function used internally by various parts of
- *  the Strophe library for terminating the connection because of a 
+ *  the Strophe library for terminating the connection because of a
  *  memory error.
  *
  *  @param conn a Strophe connection object
  */
-void disconnect_mem_error(xmpp_conn_t * const conn)
+void disconnect_mem_error(xmpp_conn_t *conn)
 {
     xmpp_error(conn->ctx, "xmpp", "Memory allocation error");
     xmpp_disconnect(conn);
